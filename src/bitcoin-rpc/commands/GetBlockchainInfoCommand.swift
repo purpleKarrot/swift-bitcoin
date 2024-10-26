@@ -6,17 +6,10 @@ import BitcoinBlockchain
 /// Summary of current blockchain information such as total number of headers, blocks and a list of block IDs (hashes).
 public struct GetBlockchainInfoCommand: Sendable {
 
-    internal struct Output: Sendable, CustomStringConvertible, Codable {
-        public var description: String {
-            let encoder = JSONEncoder()
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            let value = try! encoder.encode(self)
-            return String(data: value, encoding: .utf8)!
-        }
-
-        public let headers: Int
-        public let blocks: Int
-        public let hashes: [String]
+    internal struct Output: JSONStringConvertible {
+        let headers: Int
+        let blocks: Int
+        let hashes: [String]
     }
 
     public init(bitcoinService: BitcoinService) {

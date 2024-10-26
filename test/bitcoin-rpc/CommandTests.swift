@@ -35,7 +35,7 @@ final class CommandTests {
         let command = GetBlockchainInfoCommand(bitcoinService: satoshiChain)
         let output = await command.run(.init(id: "", method: "get-blockchain-info", params: .none))
         let result = try #require(output.result)
-        guard case .string(let blockchainInfo) = result else {
+        guard case .string(_) = result else {
             Issue.record()
             return
         }

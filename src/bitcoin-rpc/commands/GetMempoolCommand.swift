@@ -6,16 +6,9 @@ import BitcoinBlockchain
 /// Summary of current mempool information including a list of transaction IDs.
 public struct GetMempoolCommand: Sendable {
 
-    internal struct Output: Sendable, CustomStringConvertible, Codable {
-        public var description: String {
-            let encoder = JSONEncoder()
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            let value = try! encoder.encode(self)
-            return String(data: value, encoding: .utf8)!
-        }
-
-        public let size: Int
-        public let transactions: [String]
+    internal struct Output: JSONStringConvertible {
+        let size: Int
+        let transactions: [String]
     }
 
     public init(bitcoinService: BitcoinService) {
