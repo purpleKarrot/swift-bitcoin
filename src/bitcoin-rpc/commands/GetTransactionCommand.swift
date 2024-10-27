@@ -6,30 +6,23 @@ import BitcoinBlockchain
 /// Transaction information including ID, witness ID, inputs and outputs. For each output a raw value is also included in order to facilitate the signing of transactions which require the serialization of previous outputs.
 public struct GetTransactionCommand: Sendable {
 
-    internal struct Output: Sendable, CustomStringConvertible, Codable {
+    internal struct Output: JSONStringConvertible {
 
-        public struct Input: Sendable, Codable {
-            public let transaction: String
-            public let output: Int
+        struct Input: Encodable {
+            let transaction: String
+            let output: Int
         }
 
-        public struct Output: Sendable, Codable {
-            public let raw: String
-            public let amount: BitcoinAmount
-            public let script: String
+        struct Output: Encodable {
+            let raw: String
+            let amount: BitcoinAmount
+            let script: String
         }
 
-        public var description: String {
-            let encoder = JSONEncoder()
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            let value = try! encoder.encode(self)
-            return String(data: value, encoding: .utf8)!
-        }
-
-        public let id: String
-        public let witnessID: String
-        public let inputs: [Input]
-        public let outputs: [Output]
+        let id: String
+        let witnessID: String
+        let inputs: [Input]
+        let outputs: [Output]
     }
 
     public init(bitcoinService: BitcoinService) {

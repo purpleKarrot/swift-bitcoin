@@ -6,18 +6,10 @@ import BitcoinBlockchain
 /// Block information by block ID. Includes a reference to the previous block and a list of transaction IDs.
 public struct GetBlockCommand: Sendable {
 
-    internal struct Output: Sendable, CustomStringConvertible, Codable {
-
-        public let id: String
-        public let previous: String
-        public let transactions: [String]
-
-        public var description: String {
-            let encoder = JSONEncoder()
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            let value = try! encoder.encode(self)
-            return String(data: value, encoding: .utf8)!
-        }
+    internal struct Output: JSONStringConvertible {
+        let id: String
+        let previous: String
+        let transactions: [String]
     }
 
     public init(bitcoinService: BitcoinService) {

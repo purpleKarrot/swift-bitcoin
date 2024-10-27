@@ -1,43 +1,45 @@
 import Foundation
 import NIOPosix
 import BitcoinTransport
+import BitcoinRPC
 import AsyncAlgorithms
 import ServiceLifecycle
 import NIOCore
 import NIOExtras
 import Logging
-
 private let logger = Logger(label: "swift-bitcoin.p2p")
 
 actor P2PService: Service {
-
-    struct Status {
-        var isRunning = false
-        var isListening = false
-        var host = String?.none
-        var port = Int?.none
-        var overallTotalConnections = 0
-        var connectionsThisSession = 0
-        var activeConnections = 0
-    }
 
     init(eventLoopGroup: EventLoopGroup, bitcoinNode: NodeService) {
         self.eventLoopGroup = eventLoopGroup
         self.bitcoinNode = bitcoinNode
     }
 
-    private let eventLoopGroup: EventLoopGroup
-    private let bitcoinNode: NodeService
-    private(set) var status = Status() // Network status
+    let eventLoopGroup: EventLoopGroup
+    let bitcoinNode: NodeService
+
+    // Status
+    private(set) var running = false
+    private(set) var listening = false
+    private(set) var host = String?.none
+    private(set) var port = Int?.none
+    private(set) var overallConnections = 0
+    private(set) var sessionConnections = 0
+    private(set) var activeConnections = 0
 
     private let listenRequests = AsyncChannel<()>() // We'll send () to this channel whenever we want the service to bootstrap itself
 
     private var serverChannel: NIOAsyncChannel<NIOAsyncChannel<BitcoinMessage, BitcoinMessage>, Never>?
     private var peerIDs = [UUID]()
 
+    var status: P2PServiceStatus {
+        .init(running: running, listening: listening, host: host, port: port, overallConnections: overallConnections, sessionConnections: sessionConnections, activeConnections: activeConnections)
+    }
+
     func run() async throws {
         // Update status
-        status.isRunning = true
+        running = true
 
         try await withGracefulShutdownHandler {
             for await _ in listenRequests.cancelOnGracefulShutdown() {
@@ -48,22 +50,10 @@ actor P2PService: Service {
         }
     }
 
-    func serviceUp(_ port: Int) {
-        status.isListening = true
-        status.port = port
-        status.connectionsThisSession = 0
-        status.activeConnections = 0
-    }
-
-    func connectionMade() {
-        status.activeConnections += 1
-        status.overallTotalConnections += 1
-    }
-
     func start(host: String, port: Int) async {
         guard serverChannel == nil else { return }
-        status.host = host
-        status.port = port
+        self.host = host
+        self.port = port
         await bitcoinNode.setAddress(host, port)
         await listenRequests.send(()) // Signal to start listening
     }
@@ -71,18 +61,33 @@ actor P2PService: Service {
     func stopListening() async throws {
         try await serverChannel?.channel.close()
         serverChannel = .none
-        status.isListening = false
-        status.host = .none
-        status.port = .none
+        listening = false
+        host = .none
+        port = .none
+        sessionConnections = 0
+        activeConnections = 0
         await bitcoinNode.resetAddress()
     }
 
-    private func updateStats() {
-        status.activeConnections -= 1
+    private func serviceUp() {
+        listening = true
+    }
+
+    private func connectionMade() {
+        overallConnections += 1
+        sessionConnections += 1
+        activeConnections += 1
+    }
+
+    private func clientDisconnected() {
+        activeConnections -= 1
     }
 
     private func startListening() async throws {
-        guard let host = status.host, let port = status.port else { return }
+        guard let host, let port else {
+            logger.error("Host and port not set.")
+            return
+        }
 
         // Bootstraping server channel.
         let bootstrap = ServerBootstrap(group: eventLoopGroup)
@@ -108,13 +113,17 @@ actor P2PService: Service {
             try await serverChannel.executeThenClose { serverChannelInbound in
                 logger.info("P2P server accepting incoming connections on \(host):\(port)…")
 
-                await serviceUp(port)
+                await serviceUp()
 
                 for try await connectionChannel in serverChannelInbound.cancelOnGracefulShutdown() {
 
-                    logger.info("P2P server received incoming connection from peer @ \(connectionChannel.channel.remoteAddress?.description ?? "").")
-                    let remoteHost = connectionChannel.channel.remoteAddress!.ipAddress!
-                    let remotePort = connectionChannel.channel.remoteAddress!.port!
+                    guard let remoteAddress = connectionChannel.channel.remoteAddress,
+                          let remoteHost = remoteAddress.ipAddress,
+                          let remotePort = remoteAddress.port else {
+                        logger.error("Could not obtain remote address.")
+                        continue
+                    }
+                    logger.info("P2P server received incoming connection from peer @ \(remoteAddress).")
 
                     await connectionMade()
 
@@ -151,7 +160,7 @@ actor P2PService: Service {
                         } catch {
                             logger.error("An unexpected error has occurred:\n\(error)")
                         }
-                        await self.updateStats()
+                        await self.clientDisconnected()
                     }
                 }
             }
