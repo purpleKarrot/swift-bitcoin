@@ -39,7 +39,7 @@ struct ScriptToAddress: ParsableCommand {
         let result: String
         switch sigVersion {
         case .base:
-            let address = BitcoinAddress(scripts[0], mainnet: network == .main)
+            let address = LegacyAddress(scripts[0], mainnet: network == .main)
             result = address.description
         case .witnessV0:
             let address = SegwitAddress(scripts[0], network: network)

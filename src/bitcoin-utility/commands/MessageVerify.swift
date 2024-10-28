@@ -21,7 +21,7 @@ struct MessageVerify: ParsableCommand {
 
     mutating func run() throws {
         // Decode P2PKH address
-        guard let address = BitcoinAddress(address) else {
+        guard let address = LegacyAddress(address) else {
             throw ValidationError("Invalid P2PKH address: address")
         }
         guard let messageData = message.data(using: .utf8) else {

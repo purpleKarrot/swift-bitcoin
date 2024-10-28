@@ -4,7 +4,7 @@ import Foundation
 import BitcoinBase
 import BitcoinWallet
 
-struct BitcoinUtilityTests {
+struct BitcoinWalletTests {
 
     /// Test signing messages
     @Test("Message signing")
@@ -29,7 +29,7 @@ struct BitcoinUtilityTests {
 
         let address = "miueyHbQ33FDcjCYZpVJdC7VBbaVQzAUg5"
         // Decode P2PKH address
-        let addressDecoded = try #require(BitcoinAddress(address))
+        let addressDecoded = try #require(LegacyAddress(address))
         let result = if let publicKey = signature.recoverPublicKey(messageData: messageData) {
             Data(Hash160.hash(data: publicKey.data)) == addressDecoded.hash
         } else {
@@ -40,12 +40,15 @@ struct BitcoinUtilityTests {
 
     /// Verifies fix for bug #263
     @Test func addressDecoding() throws {
+        let addressText = "1MMgabnpMVKTnYXwJfupDJRpWNJmUay8cP"
         let publicKeyData = try #require(Data(hex: "029a3865b2488e2fee75336d1048c1d0795a088368a0caa4adc076425c90227bc3"))
         let publicKey = try #require(PublicKey(publicKeyData))
-        let address1 = BitcoinAddress(publicKey, mainnet: true)
+        let address1 = LegacyAddress(publicKey, mainnet: true)
         let addressText1 = address1.description
-        #expect(addressText1 == "1MMgabnpMVKTnYXwJfupDJRpWNJmUay8cP")
-        let address2 = try #require(BitcoinAddress(addressText1))
+        #expect(addressText1 == addressText)
+        let address2 = try #require(LegacyAddress(addressText1))
         #expect(address1 == address2)
+        let address3 = try #require(AnyAddress(addressText1))
+        #expect(address3.description == addressText)
     }
 }
