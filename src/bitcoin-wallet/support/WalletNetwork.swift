@@ -1,6 +1,6 @@
 import Foundation
 
-public enum WalletNetwork: CaseIterable, Sendable {
+public enum WalletNetwork: String, CaseIterable, Sendable {
     case main, test, regtest
 
     /// Bech32 human readable part (prefix).
