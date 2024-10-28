@@ -45,7 +45,7 @@ struct CreateTransaction: ParsableCommand {
 
         let outputs = try addressesAmounts.map {
             let (address, amount) = $0
-            guard let address = BitcoinAddress(address) else {
+            guard let address = LegacyAddress(address) else {
                 throw ValidationError("Invalid address: \(address)")
             }
             return address.output(amount)

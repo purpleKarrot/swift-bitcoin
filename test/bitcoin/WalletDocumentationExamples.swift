@@ -10,7 +10,7 @@ struct WalletDocumentationExamples {
 
         // Bob gets paid.
         let bobsSecretKey = SecretKey()
-        let bobsAddress = BitcoinAddress(bobsSecretKey)
+        let bobsAddress = LegacyAddress(bobsSecretKey)
 
         // The funding transaction, sending money to Bob.
         let fundingTransaction = BitcoinTransaction(inputs: [.init(outpoint: .coinbase)], outputs: [
@@ -20,7 +20,7 @@ struct WalletDocumentationExamples {
         // Alice generates an address to give Bob.
 
         let alicesSecretKey = SecretKey()
-        let alicesAddress = BitcoinAddress(alicesSecretKey)
+        let alicesAddress = LegacyAddress(alicesSecretKey)
 
         // Bob constructs, sings and broadcasts a transaction which pays Alice at her address.
 
@@ -46,8 +46,8 @@ struct WalletDocumentationExamples {
     @Test func signSingleKeyTransactionInputs() async throws {
         let sk = SecretKey()
 
-        let p2pkh = BitcoinAddress(sk)
-        let p2sh_p2wpkh = BitcoinAddress(.payToWitnessPublicKeyHash(sk.publicKey))
+        let p2pkh = LegacyAddress(sk)
+        let p2sh_p2wpkh = LegacyAddress(.payToWitnessPublicKeyHash(sk.publicKey))
         let p2wpkh = SegwitAddress(sk)
         let p2tr = TaprootAddress(sk)
 
@@ -93,8 +93,8 @@ struct WalletDocumentationExamples {
         let multisigScript = BitcoinScript.payToMultiSignature(2, of: sk1.publicKey, sk2.publicKey, sk3.publicKey)
 
         // Some different types of addresses
-        let p2sh = BitcoinAddress(multisigScript)
-        let p2sh_p2wsh = BitcoinAddress(.payToWitnessScriptHash(multisigScript))
+        let p2sh = LegacyAddress(multisigScript)
+        let p2sh_p2wsh = LegacyAddress(.payToWitnessScriptHash(multisigScript))
         let p2wsh = SegwitAddress(multisigScript)
 
         let fund = BitcoinTransaction(inputs: [.init(outpoint: .coinbase)], outputs: [

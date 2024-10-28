@@ -2,7 +2,29 @@ import Foundation
 import BitcoinCrypto
 import BitcoinBase
 
-public struct SegwitAddress: CustomStringConvertible, Equatable, Sendable {
+/// Witness version 0 Bitcoin address.
+public struct SegwitAddress: BitcoinAddress {
+
+    public init?(_ address: String) {
+        walletLoop: for network in WalletNetwork.allCases {
+            var version: Int
+            var hash: Data
+            do {
+                (version, hash) = try SegwitAddressDecoder(hrp: network.bech32HRP).decode(address)
+                self.network = network
+                guard version == 0, (hash.count == Hash160.Digest.byteCount || hash.count == SHA256.Digest.byteCount) else {
+                    return nil
+                }
+                self.hash = hash
+                return
+            } catch SegwitAddressDecoder.Error.hrpMismatch(_, _) {
+                continue walletLoop
+            } catch {
+                break walletLoop
+            }
+        }
+        return nil
+    }
 
     public let network: WalletNetwork
     public let hash: Data

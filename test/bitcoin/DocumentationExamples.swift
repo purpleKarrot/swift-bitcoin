@@ -8,7 +8,7 @@ struct DocumentationExamples {
         // Generate a secret key, corresponding public key, hash and address.
         let secretKey = SecretKey()
         let publicKey = secretKey.publicKey
-        let address = BitcoinAddress(publicKey)
+        let address = LegacyAddress(publicKey)
 
         // # Prepare the Bitcoin service.
 

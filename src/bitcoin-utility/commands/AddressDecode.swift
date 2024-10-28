@@ -18,7 +18,7 @@ struct AddressDecode: ParsableCommand {
 
     mutating func run() throws {
         let addressText = address
-        guard let address = BitcoinAddress(addressText) else {
+        guard let address = LegacyAddress(addressText) else {
             throw ValidationError("Invalid address format: address")
         }
         print(AddressInfo(address))
@@ -27,7 +27,7 @@ struct AddressDecode: ParsableCommand {
 
 private struct AddressInfo: Codable, CustomStringConvertible {
 
-    init(_ address: BitcoinAddress) {
+    init(_ address: LegacyAddress) {
         self.address = address.description
         mainnet = address.isMainnet
         script = address.isScript
