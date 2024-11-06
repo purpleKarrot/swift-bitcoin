@@ -1,9 +1,16 @@
 // swift-tools-version: 6.0
 import PackageDescription
 
+let platforms: [SupportedPlatform]
+#if os(Linux)
+platforms = []
+#else
+platforms = [.macOS(.v15), .iOS(.v18), .macCatalyst(.v18), .tvOS(.v18), .watchOS(.v11), .visionOS(.v2)]
+#endif
+
 let package = Package(
     name: "swift-bitcoin",
-    platforms: [.macOS(.v14), .iOS(.v17), .macCatalyst(.v17), .tvOS(.v17), .watchOS(.v10), .visionOS(.v1)],
+    platforms: platforms,
     products: [
         .library(name: "Bitcoin", targets: ["Bitcoin"]),
         .library(name: "BitcoinRPC", targets: ["BitcoinRPC"]),
