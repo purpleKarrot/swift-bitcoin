@@ -69,6 +69,20 @@ let package = Package(
         .testTarget(name: "BitcoinBaseTests", dependencies: ["BitcoinBase"], path: "test/bitcoin-base",
             resources: [.copy("data")]),
 
+        // Plugins
+        .plugin(
+            name: "GenerateContributors",
+            capability: .command(
+                intent: .custom(
+                    verb: "generate-contributors",
+                    description: "Generates the CONTRIBUTORS.txt file based on Git logs"),
+                permissions: [
+                    .writeToPackageDirectory(reason: "This command write the new CONTRIBUTORS.txt to the source root.")
+                ]
+            ),
+            path: "plugin/generate-contributors"
+        ),
+
         // Executables
         .executableTarget(
             name: "BitcoinNode", dependencies: [
