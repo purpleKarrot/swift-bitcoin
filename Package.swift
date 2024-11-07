@@ -3,7 +3,6 @@ import PackageDescription
 
 let package = Package(
     name: "swift-bitcoin",
-    platforms: [.macOS(.v15), .iOS(.v18), .macCatalyst(.v18), .tvOS(.v18), .watchOS(.v11), .visionOS(.v2)],
     products: [
         .library(name: "Bitcoin", targets: ["Bitcoin"]),
         .library(name: "BitcoinRPC", targets: ["BitcoinRPC"]),
@@ -68,6 +67,20 @@ let package = Package(
         .testTarget(name: "BitcoinCryptoTests", dependencies: ["BitcoinCrypto"], path: "test/bitcoin-crypto"),
         .testTarget(name: "BitcoinBaseTests", dependencies: ["BitcoinBase"], path: "test/bitcoin-base",
             resources: [.copy("data")]),
+
+        // Plugins
+        .plugin(
+            name: "GenerateContributors",
+            capability: .command(
+                intent: .custom(
+                    verb: "generate-contributors",
+                    description: "Generates the CONTRIBUTORS.txt file based on Git logs"),
+                permissions: [
+                    .writeToPackageDirectory(reason: "This command write the new CONTRIBUTORS.txt to the source root.")
+                ]
+            ),
+            path: "plugin/generate-contributors"
+        ),
 
         // Executables
         .executableTarget(
