@@ -1,0 +1,6 @@
+.DS_Store
+xcuserdata/
+/.build/
+/.gitconfig/user
+/src/bitcoin-disabled/
+/tools/
