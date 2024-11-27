@@ -19,6 +19,25 @@ swift test
 swift run bcutil --help
 ```
 
+## Executable image
+
+Build both executable images `bcnode` and `bcutil` from Swift Bitcoin's project root:
+
+```sh
+docker build --target bcnode -t bcnode -f tools/Dockerfile .
+docker build --target bcutil -t bcutil -f tools/Dockerfile .
+```
+
+To execute these images:
+
+```sh
+docker network create bitcoin-regtest
+docker run --rm -it --network bitcoin-regtest --name alice bcnode -n regtest
+docker run --rm --network bitcoin-regtest bcutil -n regtest -h alice status
+```
+
+For more information on running and controlling a network of nodes check out <doc:Running>.
+
 ## Linux
 
 Use [swiftly](https://github.com/swiftlang/swiftly) to get the Toolchain installed on your system:

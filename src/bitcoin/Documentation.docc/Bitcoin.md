@@ -22,6 +22,7 @@ The Swift Bitcoin package contains:
 
 - <doc:GettingStarted>
 - <doc:Building>
+- <doc:Running>
 
 ## See Also
 
