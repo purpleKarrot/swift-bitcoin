@@ -1,6 +1,12 @@
 # Getting Started
 
-To start using Swift Bitcoin just add it as a dependency to your package manifest.
+Swift Bitcoin let's you integrate the different capabilities of the Bitcoin protocol into your own product.
+
+# Overview
+
+To start using Swift Bitcoin as a library just add it as a dependency to your package manifest.
+
+For instructions on running a node please refer to <doc:Running> instead.
 
 ## Preparation
 
