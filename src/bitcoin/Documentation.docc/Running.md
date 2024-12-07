@@ -1,11 +1,17 @@
 # Running
 
+Start a Bitcoin node service, query it and control it with the command line utility.
+
+# Overview
+
 Swift Bitcoin comes with two executables:
 
 - A client or _node_ service called `bcnode`.
 - A command line utility named `bcutil`.
 
-## Run using the `swift` command
+They can be run in debug mode using `swift run` or from Xcode on Mac. You can also use Docker to run them interactively or as standalone container images.
+
+## Run from the Swift command line
 
 To start a node use `swift run bcnode`.
 
