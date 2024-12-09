@@ -23,16 +23,16 @@ public struct TransactionInput: Equatable, Sendable {
     // MARK: - Instance Properties
 
     /// A reference to a previously unspent output of a prior transaction.
-    public let outpoint: TransactionOutpoint
+    public var outpoint: TransactionOutpoint
 
     /// The sequence number for this input.
-    public let sequence: InputSequence
+    public var sequence: InputSequence
 
     /// The script that unlocks the output associated with this input.
-    public let script: BitcoinScript
+    public var script: BitcoinScript
 
     /// BIP141 - Segregated witness data associated with this input.
-    public let witness: InputWitness?
+    public var witness: InputWitness?
 }
 
 /// Data extensions.

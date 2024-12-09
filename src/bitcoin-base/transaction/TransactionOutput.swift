@@ -13,10 +13,10 @@ public struct TransactionOutput: Equatable, Sendable {
     }
 
     /// The amount in _satoshis_ encumbered by this output.
-    public let value: BitcoinAmount
+    public var value: BitcoinAmount
 
     /// The script that locks this output.
-    public let script: BitcoinScript
+    public var script: BitcoinScript
 }
 
 /// Data extensions.

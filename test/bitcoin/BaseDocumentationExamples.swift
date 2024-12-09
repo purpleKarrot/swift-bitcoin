@@ -23,7 +23,7 @@ struct BaseDocumentationExamples {
 
         // A transaction spending all of the outputs from our coinbase transaction.
         // These outpoints all happen to come from the same transaction but they don't necessarilly have to.
-        let spend = BitcoinTransaction(inputs: [
+        var spend = BitcoinTransaction(inputs: [
             .init(outpoint: fund.outpoint(0)),
             .init(outpoint: fund.outpoint(1)),
             .init(outpoint: fund.outpoint(2)),
@@ -44,21 +44,21 @@ struct BaseDocumentationExamples {
         let sighash0 = hasher.value
         let signature0 = sk.sign(hash: sighash0)
         let signatureExt0 = ExtendedSignature(signature0, .all)
-        var tx_signed = spend.withUnlockScript([.pushBytes(signatureExt0.data)], input: 0)
+        spend.inputs[0].script = [.pushBytes(signatureExt0.data)]
 
         // For pay-to-public-key-hash we need to also add the public key to the unlock script.
         hasher.set(input: 1, prevout: prevout1)
         let sighash1 = hasher.value
         let signature1 = sk.sign(hash: sighash1)
         let signatureExt1 = ExtendedSignature(signature1, .all)
-        tx_signed = tx_signed.withUnlockScript([.pushBytes(signatureExt1.data), .pushBytes(sk.publicKey.data)], input: 1)
+        spend.inputs[1].script = [.pushBytes(signatureExt1.data), .pushBytes(sk.publicKey.data)]
 
         // For pay-to-witness-public-key-hash we sign a different hash and we add the signature and public key to the input's _witness_.
         hasher.set(input: 2, sigVersion: .witnessV0, prevout: prevout2)
         let sighash2 = hasher.value
         let signature2 = sk.sign(hash: sighash2)
         let signatureExt2 = ExtendedSignature(signature2, .all)
-        tx_signed = tx_signed.withWitness([signatureExt2.data, sk.publicKey.data], input: 2)
+        spend.inputs[2].witness = .init([signatureExt2.data, sk.publicKey.data])
 
         // For pay-to-taproot with key we need a different sighash and a _tweaked_ version of our secret key to sign it. We use the default sighash type which is equal to _all_.
         hasher.set(input: 3, sigVersion: .witnessV1, prevouts: [prevout0, prevout1, prevout2, prevout3], sighashType: Optional.none)
@@ -66,9 +66,9 @@ struct BaseDocumentationExamples {
         let signature3 = sk.taprootSecretKey().sign(hash: sighash3, signatureType: .schnorr)
         let signatureExt3 = ExtendedSignature(signature3, Optional.none)
         // The witness only requires the signature
-        tx_signed = tx_signed.withWitness([signatureExt3.data], input: 3)
+        spend.inputs[3].witness = .init([signatureExt3.data])
 
-        let result = tx_signed.verifyScript(prevouts: [prevout0, prevout1, prevout2, prevout3])
+        let result = spend.verifyScript(prevouts: [prevout0, prevout1, prevout2, prevout3])
         #expect(result)
     }
 
@@ -80,7 +80,7 @@ struct BaseDocumentationExamples {
             .init(value: 100, script: .payToMultiSignature(2, of: sk1.publicKey, sk2.publicKey, sk3.publicKey)),
         ])
 
-        let spend = BitcoinTransaction(inputs: [.init(outpoint: fund.outpoint(0))], outputs: [
+        var spend = BitcoinTransaction(inputs: [.init(outpoint: fund.outpoint(0))], outputs: [
             .init(value: 100)
         ])
 
@@ -100,9 +100,9 @@ struct BaseDocumentationExamples {
         let signatureExt1 = ExtendedSignature(signature1, sighashType)
 
         // Signatures need to appear in the right order, plus a dummy value
-        let tx_signed = spend.withUnlockScript([.zero, .pushBytes(signatureExt0.data), .pushBytes(signatureExt1.data)], input: input)
+        spend.inputs[input].script = [.zero, .pushBytes(signatureExt0.data), .pushBytes(signatureExt1.data)]
 
-        let result = tx_signed.verifyScript(prevouts: [prevout])
+        let result = spend.verifyScript(prevouts: [prevout])
         #expect(result)
     }
 
@@ -115,7 +115,7 @@ struct BaseDocumentationExamples {
             .init(value: 100, script: .payToScriptHash(redeemScript)),
         ])
 
-        let spend = BitcoinTransaction(inputs: [
+        var spend = BitcoinTransaction(inputs: [
             .init(outpoint: fund.outpoint(0)),
         ], outputs: [.init(value: 100)])
 
@@ -132,9 +132,9 @@ struct BaseDocumentationExamples {
         let signatureExt1 = ExtendedSignature(signature1, sighashType)
 
         // Signatures need to appear in the right order, plus a dummy value
-        let tx_signed = spend.withUnlockScript([.zero, .pushBytes(signatureExt0.data), .pushBytes(signatureExt1.data), .encodeMinimally(redeemScript.data)], input: input)
+        spend.inputs[input].script = [.zero, .pushBytes(signatureExt0.data), .pushBytes(signatureExt1.data), .encodeMinimally(redeemScript.data)]
 
-        let result = tx_signed.verifyScript(prevouts: [prevout])
+        let result = spend.verifyScript(prevouts: [prevout])
         #expect(result)
     }
 
@@ -148,7 +148,7 @@ struct BaseDocumentationExamples {
             .init(value: 100, script: .payToWitnessScriptHash(redeemScript)),
         ])
 
-        let spend = BitcoinTransaction(inputs: [
+        var spend = BitcoinTransaction(inputs: [
             .init(outpoint: fund.outpoint(0)),
         ], outputs: [
             .init(value: 100)
@@ -168,9 +168,9 @@ struct BaseDocumentationExamples {
         let signatureExt1 = ExtendedSignature(signature1, sighashType)
 
         // Signatures need to appear in the right order, plus a dummy value
-        let tx_signed = spend.withWitness([Data(), signatureExt0.data, signatureExt1.data, redeemScript.data], input: input)
+        spend.inputs[input].witness = .init([Data(), signatureExt0.data, signatureExt1.data, redeemScript.data])
 
-        let result = tx_signed.verifyScript(prevouts: [prevout])
+        let result = spend.verifyScript(prevouts: [prevout])
         #expect(result)
     }
 
@@ -186,7 +186,7 @@ struct BaseDocumentationExamples {
         let prevout = fund.outputs[0]
 
         // Spending transaction.
-        let spend = BitcoinTransaction(inputs: [
+        var spend = BitcoinTransaction(inputs: [
             .init(outpoint: fund.outpoint(0)),
         ], outputs: [
             .init(value: 100)
@@ -203,9 +203,11 @@ struct BaseDocumentationExamples {
         let sighash = hasher.value
         let signature = sk.sign(hash: sighash)
         let signatureExt = ExtendedSignature(signature, sighashType)
-        let tx_signed = spend.withWitness([signatureExt.data, publicKey.data], input: input).withUnlockScript([.encodeMinimally(redeemScript.data)], input: input)
 
-        let result = tx_signed.verifyScript(prevouts: [prevout])
+        spend.inputs[input].witness = .init([signatureExt.data, publicKey.data])
+        spend.inputs[input].script = [.encodeMinimally(redeemScript.data)]
+
+        let result = spend.verifyScript(prevouts: [prevout])
         #expect(result)
     }
 
@@ -222,7 +224,7 @@ struct BaseDocumentationExamples {
         let prevout = fund.outputs[0]
 
         // Spending transaction.
-        let spend = BitcoinTransaction(inputs: [
+        var spend = BitcoinTransaction(inputs: [
             .init(outpoint: fund.outpoint(0)),
         ], outputs: [
             .init(value: 100)
@@ -241,9 +243,11 @@ struct BaseDocumentationExamples {
         let signatureExt1 = ExtendedSignature(signature1, sighashType)
 
         // Signatures need to appear in the right order, plus a dummy value
-        let tx_signed = spend.withWitness([Data(), signatureExt0.data, signatureExt1.data, witnessScript.data], input: input).withUnlockScript([.encodeMinimally(redeemScript.data)], input: input)
 
-        let result = tx_signed.verifyScript(prevouts: [prevout])
+        spend.inputs[input].witness = .init([Data(), signatureExt0.data, signatureExt1.data, witnessScript.data])
+        spend.inputs[input].script = [.encodeMinimally(redeemScript.data)]
+
+        let result = spend.verifyScript(prevouts: [prevout])
         #expect(result)
     }
 
@@ -273,7 +277,7 @@ struct BaseDocumentationExamples {
 
         let prevouts = [fund.outputs[0]]
         // Spending transaction.
-        let spend = BitcoinTransaction(inputs: [
+        var spend = BitcoinTransaction(inputs: [
             .init(outpoint: fund.outpoint(0)),
         ], outputs: [.init(value: 100)])
 
@@ -292,15 +296,15 @@ struct BaseDocumentationExamples {
         let signature3 = sk3.sign(hash: sighash, signatureType: .schnorr)
         let signatureExt3 = ExtendedSignature(signature3, sighashType)
 
-        let tx_signed = spend.withWitness([
+        spend.inputs[input].witness = .init([
             signatureExt3.data,
             Data(),
             signatureExt1.data,
             tapscript,
             controlBlocks[0]
-        ], input: input)
+        ])
 
-        let result = tx_signed.verifyScript(prevouts: prevouts)
+        let result = spend.verifyScript(prevouts: prevouts)
         #expect(result)
     }
 
