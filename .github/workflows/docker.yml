@@ -4,6 +4,9 @@ name: Docker
 on:
   workflow_dispatch:
 
+env:
+  DOCKER_CLI_EXPERIMENTAL: true
+
 jobs:
   docker:
     runs-on: ubuntu-latest
