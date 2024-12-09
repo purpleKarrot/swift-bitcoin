@@ -33,7 +33,7 @@ jobs:
             swiftbitcoin/swift-bitcoin
             ghcr.io/swift-bitcoin/swift-bitcoin
           tags: |
-            type=sha,prefix='__tool__'
+            type=sha,prefix=__tool__-sha-
       -
         name: Build
         uses: docker/bake-action@v5
