@@ -72,14 +72,14 @@ public class TransactionSigner {
 
         if let witnessScript {
             let witness = [Data()] + signatures
-            transaction = transaction.withWitness(witness, input: inputIndex)
+            transaction.inputs[inputIndex].witness = .init(witness)
             if lockScript.isPayToScriptHash {
                 let redeemScriptP2WSH = BitcoinScript.payToWitnessScriptHash(witnessScript)
-                transaction = transaction.withUnlockScript([.encodeMinimally(redeemScriptP2WSH.data)], input: inputIndex)
+                transaction.inputs[inputIndex].script = [.encodeMinimally(redeemScriptP2WSH.data)]
             }
         } else {
             let unlockScript = BitcoinScript([.zero] + signatures.map { ScriptOperation.encodeMinimally($0) })
-            transaction = transaction.withUnlockScript(unlockScript, input: inputIndex)
+            transaction.inputs[inputIndex].script = unlockScript
         }
         return transaction
     }
@@ -127,14 +127,14 @@ public class TransactionSigner {
         }
         if lockScript.isPayToWitnessKeyHash || lockScript.isPayToScriptHash || lockScript.isPayToTaproot {
             // For pay-to-witness-public-key-hash we sign a different hash and we add the signature and public key to the input's _witness_.
-            transaction = transaction.withWitness(witnessData, input: inputIndex)
+            transaction.inputs[inputIndex].witness = .init(witnessData)
         }
         if lockScript.isPayToPublicKey || lockScript.isPayToPublicKeyHash {
             let ops = witnessData.map { ScriptOperation.pushBytes($0) }
-            transaction = transaction.withUnlockScript(.init(ops), input: inputIndex)
+            transaction.inputs[inputIndex].script = .init(ops)
         }
         if lockScript.isPayToScriptHash {
-            transaction = transaction.withUnlockScript([.encodeMinimally(redeemScript.data)], input: inputIndex)
+            transaction.inputs[inputIndex].script = [.encodeMinimally(redeemScript.data)]
         }
         return transaction
     }

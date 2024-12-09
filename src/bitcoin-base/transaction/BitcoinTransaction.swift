@@ -30,16 +30,16 @@ public struct BitcoinTransaction: Equatable, Sendable {
     // MARK: - Instance Properties
 
     /// The transaction's version.
-    public let version: TransactionVersion
+    public var version: TransactionVersion
 
     /// Lock time value applied to this transaction. It represents the earliest time at which this transaction should be considered valid.
-    public let locktime: TransactionLocktime
+    public var locktime: TransactionLocktime
 
     /// All of the inputs consumed (coins spent) by this transaction.
-    public let inputs: [TransactionInput]
+    public var inputs: [TransactionInput]
 
     /// The new outputs to be created by this transaction.
-    public let outputs: [TransactionOutput]
+    public var outputs: [TransactionOutput]
 
     // MARK: - Computed Properties
 
@@ -69,22 +69,6 @@ public struct BitcoinTransaction: Equatable, Sendable {
     public func outpoint(_ outputIndex: Int) -> TransactionOutpoint {
         precondition(outputIndex < outputs.count)
         return .init(transaction: id, output: outputIndex)
-    }
-
-    public func withUnlockScript(_ script: BitcoinScript, input inputIndex: Int) -> Self {
-        precondition(inputs.indices.contains(inputIndex))
-        let oldInput = inputs[inputIndex]
-        let newInput = TransactionInput(outpoint: oldInput.outpoint, sequence: oldInput.sequence, script: script, witness: oldInput.witness)
-        let newInputs = inputs[..<inputIndex] + [newInput] + inputs[inputIndex.advanced(by: 1)...]
-        return .init(version: version, locktime: locktime, inputs: .init(newInputs), outputs: outputs)
-    }
-
-    public func withWitness(_ witnessElements: [Data], input inputIndex: Int) -> Self {
-        precondition(inputs.indices.contains(inputIndex))
-        let oldInput = inputs[inputIndex]
-        let newInput = TransactionInput(outpoint: oldInput.outpoint, sequence: oldInput.sequence, script: oldInput.script, witness: .init(witnessElements))
-        let newInputs = inputs[..<inputIndex] + [newInput] + inputs[inputIndex.advanced(by: 1)...]
-        return .init(version: version, locktime: locktime, inputs: .init(newInputs), outputs: outputs)
     }
 
     // MARK: - Type Properties
