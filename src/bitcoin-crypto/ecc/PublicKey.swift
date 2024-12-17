@@ -159,27 +159,6 @@ public struct PublicKey: Sendable {
         }
     }
 
-    /// BIP32: Used to derive public keys.
-    public func tweak(_ tweak: Data) -> PublicKey {
-        var publicKeyBytes = [UInt8](data)
-        var tweak = [UInt8](tweak)
-
-        var pubkey: secp256k1_pubkey = .init()
-        var result = secp256k1_ec_pubkey_parse(secp256k1_context_static, &pubkey, &publicKeyBytes, publicKeyBytes.count)
-        assert(result != 0)
-
-        result = secp256k1_ec_pubkey_tweak_add(secp256k1_context_static, &pubkey, &tweak)
-        assert(result != 0)
-
-        let tweakedKey: [UInt8] = .init(unsafeUninitializedCapacity: PublicKey.compressedLength) { buf, len in
-            len = Self.compressedLength
-            result = secp256k1_ec_pubkey_serialize(secp256k1_context_static, buf.baseAddress!, &len, &pubkey, UInt32(SECP256K1_EC_COMPRESSED))
-            assert(result != 0)
-            assert(len == PublicKey.compressedLength)
-        }
-        return PublicKey(Data(tweakedKey))!
-    }
-
     /// Internal key is an x-only public key.
     public func tweakXOnly(_ tweak: Data) -> PublicKey {
         let xOnlyPublicKeyBytes = [UInt8](xOnlyData)
@@ -231,6 +210,21 @@ public struct PublicKey: Sendable {
     public static let satoshi = PublicKey(uncompressed: [0x04, 0x67, 0x8a, 0xfd, 0xb0, 0xfe, 0x55, 0x48, 0x27, 0x19, 0x67, 0xf1, 0xa6, 0x71, 0x30, 0xb7, 0x10, 0x5c, 0xd6, 0xa8, 0x28, 0xe0, 0x39, 0x09, 0xa6, 0x79, 0x62, 0xe0, 0xea, 0x1f, 0x61, 0xde, 0xb6, 0x49, 0xf6, 0xbc, 0x3f, 0x4c, 0xef, 0x38, 0xc4, 0xf3, 0x55, 0x04, 0xe5, 0x1e, 0xc1, 0x12, 0xde, 0x5c, 0x38, 0x4d, 0xf7, 0xba, 0x0b, 0x8d, 0x57, 0x8a, 0x4c, 0x70, 0x2b, 0x6b, 0xf1, 0x1d, 0x5f])!
 }
 
+// MARK: Codable
+extension PublicKey: Codable {
+    public init(from decoder: Decoder) throws {
+        let string = try String(from: decoder)
+        guard let this = PublicKey(string) else {
+            preconditionFailure()
+        }
+        self = this
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        try self.data.hex.encode(to: encoder)
+    }
+}
+
 // MARK: Comparable
 extension PublicKey: Comparable {
     public static func < (lhs: PublicKey, rhs: PublicKey) -> Bool {
@@ -254,5 +248,60 @@ extension PublicKey: Comparable {
 extension PublicKey: CustomStringConvertible {
     public var description: String {
         self.data.hex
+    }
+}
+
+// MARK: Operators
+extension PublicKey {
+    public static prefix func - (arg: PublicKey) -> PublicKey {
+        var copy = arg
+        withUnsafeMutablePointer(to: &copy.implementation) { pubkey in
+            let result = secp256k1_ec_pubkey_negate(secp256k1_context_static, pubkey)
+            assert(result != 0)
+        }
+        return copy
+    }
+
+    public static func + (lhs: PublicKey, rhs: PublicKey) -> PublicKey {
+        var combined: secp256k1_pubkey = .init()
+        withUnsafePointer(to: lhs.implementation) { lhs in
+            withUnsafePointer(to: rhs.implementation) { rhs in
+                let result = secp256k1_ec_pubkey_combine2(secp256k1_context_static, &combined, lhs, rhs)
+                assert(result != 0)
+            }
+        }
+        return PublicKey(implementation: combined)
+    }
+
+    public static func - (lhs: PublicKey, rhs: PublicKey) -> PublicKey {
+        lhs + (-rhs)
+    }
+
+    public static func += (lhs: inout PublicKey, rhs: SecretKey) {
+        withUnsafeMutablePointer(to: &lhs.implementation) { pubkey in
+            let seckey = [UInt8](rhs.data)
+            let result = secp256k1_ec_pubkey_tweak_add(secp256k1_context_static, pubkey, seckey)
+            assert(result != 0)
+        }
+    }
+
+    public static func *= (lhs: inout PublicKey, rhs: SecretKey) {
+        withUnsafeMutablePointer(to: &lhs.implementation) { pubkey in
+            let seckey = [UInt8](rhs.data)
+            let result = secp256k1_ec_pubkey_tweak_mul(secp256k1_context_static, pubkey, seckey)
+            assert(result != 0)
+        }
+    }
+
+    public static func + (lhs: PublicKey, rhs: SecretKey) -> PublicKey {
+        var copy = lhs
+        copy += rhs
+        return copy
+    }
+
+    public static func * (lhs: PublicKey, rhs: SecretKey) -> PublicKey {
+        var copy = lhs
+        copy *= rhs
+        return copy
     }
 }
