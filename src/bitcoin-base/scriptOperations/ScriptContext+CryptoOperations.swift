@@ -157,7 +157,7 @@ extension ScriptContext {
 
         // Check public key
         if config.contains(.strictEncoding) {
-            guard let _ = PublicKey(publicKeyData, skipCheck: true) else {
+            guard let _ = PublicKey(publicKeyData) else {
                 throw ScriptError.invalidPublicKeyEncoding
             }
         }

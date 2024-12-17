@@ -100,7 +100,7 @@ public struct BitcoinTransaction: Equatable, Sendable {
             outputs: [
                 .init(value: blockSubsidy,
                       script: .init([
-                        .pushBytes(PublicKey.satoshi.uncompressedData!),
+                        .pushBytes(PublicKey.satoshi.uncompressedData),
                         .checkSig]))
             ])
 

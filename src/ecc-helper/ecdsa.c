@@ -7,6 +7,12 @@ const secp256k1_context* get_static_context() {
     return secp256k1_context_static;
 }
 
+int secp256k1_ec_pubkey_combine2(const secp256k1_context* ctx, secp256k1_pubkey* out,
+                                 const secp256k1_pubkey* in1, const secp256k1_pubkey* in2) {
+    const secp256k1_pubkey* const ins[] = {in1, in2};
+    return secp256k1_ec_pubkey_combine(ctx, out, ins, 2);
+}
+
 /** This function is taken from the libsecp256k1 distribution and implements
  *  DER parsing for ECDSA signatures, while supporting an arbitrary subset of
  *  format violations.

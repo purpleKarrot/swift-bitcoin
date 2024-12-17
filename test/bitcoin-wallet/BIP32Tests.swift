@@ -188,7 +188,7 @@ struct BIP32Tests {
 
         // (pubkey version / prvkey mismatch)
         var invalidKey = "xpub661MyMwAqRbcEYS8w7XLSVeEsBXy79zSzH1J8vCdxAZningWLdN3zgtU6LBpB85b3D2yc8sfvZU521AAwdZafEz7mnzBBsz4wKY5fTtTQBm"
-        #expect(throws: ExtendedKey.Error.invalidPublicKeyEncoding) {
+        #expect(throws: ExtendedKey.Error.invalidPublicKey) {
             _ = try ExtendedKey(invalidKey)
         }
 
@@ -200,7 +200,7 @@ struct BIP32Tests {
 
         // (invalid pubkey prefix 04)
         invalidKey = "xpub661MyMwAqRbcEYS8w7XLSVeEsBXy79zSzH1J8vCdxAZningWLdN3zgtU6Txnt3siSujt9RCVYsx4qHZGc62TG4McvMGcAUjeuwZdduYEvFn"
-        #expect(throws: ExtendedKey.Error.invalidPublicKeyEncoding) {
+        #expect(throws: ExtendedKey.Error.invalidPublicKey) {
             _ = try ExtendedKey(invalidKey)
         }
 
@@ -212,7 +212,7 @@ struct BIP32Tests {
 
         // (invalid pubkey prefix 01)
         invalidKey = "xpub661MyMwAqRbcEYS8w7XLSVeEsBXy79zSzH1J8vCdxAZningWLdN3zgtU6N8ZMMXctdiCjxTNq964yKkwrkBJJwpzZS4HS2fxvyYUA4q2Xe4"
-        #expect(throws: ExtendedKey.Error.invalidPublicKeyEncoding) {
+        #expect(throws: ExtendedKey.Error.invalidPublicKey) {
             _ = try ExtendedKey(invalidKey)
         }
 
