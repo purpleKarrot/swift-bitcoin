@@ -31,9 +31,9 @@ struct BIP340Tests {
         for i in 0 ..< 10 {
             let merkleRoot: Data = i == 0 ? .init() : Data(getRandBytes(32))
             let auxRnd = Data(getRandBytes(32))
-            let internalKey = try #require(PublicKey(xOnly: internalKeyData))
+            let internalKey = try #require(XOnlyPublicKey(internalKeyData))
             let tweak = internalKey.tapTweak(merkleRoot: merkleRoot)
-            let outputKey = internalKey.xOnly + SecretKey(tweak)!
+            let outputKey = internalKey + SecretKey(tweak)!
 
             #expect(internalKey.checkTweak(tweak, outputKey: outputKey))
 

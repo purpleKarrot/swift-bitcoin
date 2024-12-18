@@ -10,7 +10,7 @@ struct BitcoinCryptoTests {
         let publicKey = secretKey.publicKey
         #expect(publicKey.matches(secretKey))
 
-        let publicKeyCopy = PublicKey(secretKey)
+        let publicKeyCopy = secretKey.publicKey
         #expect(publicKey == publicKeyCopy)
 
         let message = "Hello, Bitcoin!"
@@ -32,7 +32,7 @@ struct BitcoinCryptoTests {
         let publicKey = try #require(PublicKey("02c8d21f79529deeaa2769198d3df6209a064c9915ae557f7a9d01d724590d6334"))
         #expect(publicKey.matches(secretKey))
 
-        let publicKeyCopy = PublicKey(secretKey)
+        let publicKeyCopy = secretKey.publicKey
         #expect(publicKey == publicKeyCopy)
 
         let message = "Hello, Bitcoin!"

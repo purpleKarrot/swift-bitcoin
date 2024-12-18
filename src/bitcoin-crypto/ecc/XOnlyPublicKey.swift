@@ -32,6 +32,16 @@ public struct XOnlyPublicKey: Codable, CustomStringConvertible, HexRepresentable
         return Data(bytes)
     }
 
+    package func checkTweak(_ tweakData: Data, outputKey: PublicKey) -> Bool {
+        let outputKeyBytes = [UInt8](outputKey.xOnly.data)
+        let tweakBytes = [UInt8](tweakData)
+
+        let parity = Int32(outputKey.hasOddY ? 1 : 0)
+        return withUnsafePointer(to: self.implementation) { xonly in
+            secp256k1_xonly_pubkey_tweak_add_check(secp256k1_context_static, outputKeyBytes, parity, xonly, tweakBytes) != 0
+        }
+    }
+
     public static let keyLength = 32
 }
 

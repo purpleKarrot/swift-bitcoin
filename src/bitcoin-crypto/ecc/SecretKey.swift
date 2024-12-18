@@ -32,10 +32,16 @@ public struct SecretKey: Equatable, CustomStringConvertible, HexRepresentable {
 
     public var data: Data { .init(implementation) }
 
-    public var publicKey: PublicKey { .init(self) }
+    public var publicKey: PublicKey {
+        var pubkey = secp256k1_pubkey()
+        guard secp256k1_ec_pubkey_create(eccSigningContext, &pubkey, self.implementation) != 0 else {
+            preconditionFailure()
+        }
+        return .init(implementation: pubkey)
+    }
 
-    package var xOnlyPublicKey: PublicKey {
-        .init(self, requireEvenY: true)
+    package var xOnlyPublicKey: XOnlyPublicKey {
+        KeyPair(self).xOnlyPublicKey
     }
 
     public func sign(_ message: String, signatureType: SignatureType = .ecdsa, recoverCompressedKeys: Bool = true) -> Signature? {

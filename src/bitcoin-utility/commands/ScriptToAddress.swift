@@ -54,7 +54,7 @@ struct ScriptToAddress: ParsableCommand {
             guard let publicKey = PublicKey(compressed: publicKeyData) else {
                 throw ValidationError("Invalid compressed public key data: publicKey")
             }
-            let address = TaprootAddress(publicKey, scripts: scripts, network: network)
+            let address = TaprootAddress(publicKey.xOnly, scripts: scripts, network: network)
             result = address.description
         }
         print(result)

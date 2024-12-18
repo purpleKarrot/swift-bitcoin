@@ -30,9 +30,8 @@ public struct TaprootAddress: BitcoinAddress {
         self.init(secretKey.taprootInternalKey, scripts: scripts, network: network)
     }
 
-    public init(_ internalKey: PublicKey, scripts: [BitcoinScript] = [], network: WalletNetwork = .main) {
+    public init(_ internalKey: XOnlyPublicKey, scripts: [BitcoinScript] = [], network: WalletNetwork = .main) {
         precondition(scripts.count <= 8)
-        precondition(internalKey.hasEvenY)
         self.network = network
         if scripts.isEmpty {
             outputKey = internalKey.taprootOutputKey().xOnlyNormalized!

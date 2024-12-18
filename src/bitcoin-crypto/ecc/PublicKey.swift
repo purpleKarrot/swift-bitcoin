@@ -10,27 +10,6 @@ public struct PublicKey: Sendable, CustomStringConvertible, Codable, HexRepresen
         self.implementation = implementation
     }
 
-    /// Derives a public key from a secret key.
-    /// - Parameters:
-    ///   - secretKey: The secret key.
-    ///   - requireEvenY: Gets the internal (x-only) public key for the specified secret key.
-    ///
-    ///   Requires global signing context to be initialized.
-    public init(_ secretKey: SecretKey, requireEvenY: Bool = false) {
-        if requireEvenY {
-            let keypair = KeyPair(secretKey)
-            let xonly = keypair.xOnlyPublicKey
-            self.init(Data([Self.tagEven] + xonly.data))!
-            return
-        }
-
-        var pubkey = secp256k1_pubkey()
-        guard secp256k1_ec_pubkey_create(eccSigningContext, &pubkey, secretKey.implementation) != 0 else {
-            preconditionFailure()
-        }
-        self.init(implementation: pubkey)
-    }
-
     public init?(_ hex: String, skipCheck: Bool = false) {
         guard let data = Data(hex: hex) else {
             return nil
@@ -129,7 +108,7 @@ public struct PublicKey: Sendable, CustomStringConvertible, Codable, HexRepresen
     }
 
     public func matches(_ secretKey: SecretKey) -> Bool {
-        self == PublicKey(secretKey)
+        self == secretKey.publicKey
     }
 
     public func verify(_ signature: Signature, for message: String) -> Bool {
@@ -150,20 +129,6 @@ public struct PublicKey: Sendable, CustomStringConvertible, Codable, HexRepresen
         } else {
             data.last! & 1 == 1
         }
-    }
-
-    package func checkTweak(_ tweakData: Data, outputKey: PublicKey) -> Bool {
-        let internalKeyBytes = [UInt8](xOnly.data)
-        let outputKeyBytes = [UInt8](outputKey.xOnly.data)
-        let tweakBytes = [UInt8](tweakData)
-
-        var xonlyPubkey = secp256k1_xonly_pubkey()
-        guard secp256k1_xonly_pubkey_parse(secp256k1_context_static, &xonlyPubkey, internalKeyBytes) != 0 else {
-            preconditionFailure()
-        }
-
-        let parity = Int32(outputKey.hasOddY ? 1 : 0)
-        return secp256k1_xonly_pubkey_tweak_add_check(secp256k1_context_static, outputKeyBytes, parity, &xonlyPubkey, tweakBytes) != 0
     }
 
     public static let uncompressedLength = 65

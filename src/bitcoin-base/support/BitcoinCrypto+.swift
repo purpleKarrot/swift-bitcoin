@@ -4,8 +4,8 @@ import BitcoinCrypto
 /// Extensions for BIP341 taproot.
 extension SecretKey {
 
-    public var taprootInternalKey: PublicKey {
-        PublicKey(self, requireEvenY: true)
+    public var taprootInternalKey: XOnlyPublicKey {
+        self.xOnlyPublicKey
     }
 
     public func taprootSecretKey(_ scriptTree: ScriptTree? = .none) -> Self {
@@ -16,12 +16,11 @@ extension SecretKey {
 }
 
 /// Extensions for BIP341 taproot.
-extension PublicKey {
+extension XOnlyPublicKey {
 
     /// Self is an x-only internal public key.
     func tapTweak(merkleRoot: Data) -> Data {
-        precondition(hasEvenY)
-        return Data(SHA256.hash(data: xOnly.data + merkleRoot, tag: "TapTweak"))
+        return Data(SHA256.hash(data: self.data + merkleRoot, tag: "TapTweak"))
     }
 
     /// Used in BitcoinWallet/TaprootAddress.
@@ -32,13 +31,12 @@ extension PublicKey {
 
     /// Used in BIP341 tests as well as internally.
     package func taprootOutputKey(merkleRoot: Data) -> PublicKey {
-        return self.xOnly + SecretKey(tapTweak(merkleRoot: merkleRoot))!
+        return self + SecretKey(tapTweak(merkleRoot: merkleRoot))!
     }
 
     /// Used exclusively  in `BIP341Tests`.
     /// Self is an x-only public key.
     public func computeControlBlocks(_ givenScriptTree: ScriptTree?) -> (merkleRoot: Data, leafHashes: [Data], controlBlocks: [Data]) {
-        precondition(hasEvenY)
         guard let givenScriptTree else {
             return (.init(), [], [])
         }
@@ -60,7 +58,7 @@ extension PublicKey {
         let outputKey = taprootOutputKey(merkleRoot: merkleRoot)
         let outputKeyYParityBit = UInt8(outputKey.hasEvenY ? 0 : 1)
         let controlByte = withUnsafeBytes(of: UInt8(leafVersion) + outputKeyYParityBit) { Data($0) }
-        return controlByte + xOnly.data + path
+        return controlByte + self.data + path
     }
 }
 

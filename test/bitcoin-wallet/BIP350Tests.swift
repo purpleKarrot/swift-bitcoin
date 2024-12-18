@@ -131,7 +131,7 @@ struct BIP350Tests {
     func ecToAddressCommand() throws {
         // Adding 0x02 to the internal public key here to make it a standard public key.
         let publicKey = try #require(PublicKey(compressed: [0x02, 0xd6, 0x88, 0x9c, 0xb0, 0x81, 0x03, 0x6e, 0x0f, 0xae, 0xfa, 0x3a, 0x35, 0x15, 0x7a, 0xd7, 0x10, 0x86, 0xb1, 0x23, 0xb2, 0xb1, 0x44, 0xb6, 0x49, 0x79, 0x8b, 0x49, 0x4c, 0x30, 0x0a, 0x96, 0x1d]))
-        let address = TaprootAddress(publicKey).description
+        let address = TaprootAddress(publicKey.xOnly).description
         #expect(address == "bc1p2wsldez5mud2yam29q22wgfh9439spgduvct83k3pm50fcxa5dps59h4z5")
     }
 
@@ -145,7 +145,7 @@ struct BIP350Tests {
         let script2Data = try #require(Data([0x07, 0x54, 0x61, 0x70, 0x72, 0x6f, 0x6f, 0x74]))
         let script1 = try #require(BitcoinScript(script1Data))
         let script2 = try #require(BitcoinScript(script2Data))
-        let address = TaprootAddress(publicKey, scripts: [script1, script2]).description
+        let address = TaprootAddress(publicKey.xOnly, scripts: [script1, script2]).description
         #expect(address == "bc1pwl3s54fzmk0cjnpl3w9af39je7pv5ldg504x5guk2hpecpg2kgsqaqstjq")
     }
 }

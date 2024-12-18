@@ -81,7 +81,7 @@ public struct ExtendedKey {
         let keyIndex = harden ? (1 << 31) + child : child
         let depth = depth + 1
         let publicKey = if let secretKey {
-            PublicKey(secretKey)
+            secretKey.publicKey
         } else if let publicKey {
             publicKey
         } else {
@@ -124,7 +124,7 @@ public struct ExtendedKey {
     /// Turns a private key into a public key removing its ability to produce signatures.
     public var neutered: Self {
         guard let secretKey else { preconditionFailure() }
-        let publicKey = PublicKey(secretKey)
+        let publicKey = secretKey.publicKey
         guard let ret = try? Self(secretKey: .none, publicKey: publicKey, chaincode: chaincode, fingerprint: fingerprint, depth: depth, keyIndex: keyIndex, mainnet: isMainnet) else {
             preconditionFailure()
         }

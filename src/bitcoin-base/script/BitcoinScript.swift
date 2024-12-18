@@ -165,8 +165,7 @@ public struct BitcoinScript: Equatable, Sendable {
         [.zero, .pushBytes(hash)]
     }
 
-    public static func payToTaproot(internalKey: PublicKey, script: ScriptTree? = .none) -> Self {
-        precondition(internalKey.hasEvenY)
+    public static func payToTaproot(internalKey: XOnlyPublicKey, script: ScriptTree? = .none) -> Self {
         let outputKey = internalKey.taprootOutputKey(script)
         return payToTaproot(outputKey)
     }

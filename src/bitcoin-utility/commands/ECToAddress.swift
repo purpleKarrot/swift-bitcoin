@@ -34,7 +34,7 @@ struct ECToAddress: ParsableCommand {
         case .witnessV0:
             SegwitAddress(publicKey, network: network).description
         case .witnessV1:
-            TaprootAddress(publicKey, network: network).description
+            TaprootAddress(publicKey.xOnly, network: network).description
         }
         print(result)
     }

@@ -260,11 +260,11 @@ struct BaseDocumentationExamples {
         let publicKey3 = sk3.xOnlyPublicKey
 
         let tapscript = BitcoinScript([
-            .encodeMinimally(publicKey1.xOnly.data),
+            .encodeMinimally(publicKey1.data),
             .checkSig,
-            .encodeMinimally(publicKey2.xOnly.data),
+            .encodeMinimally(publicKey2.data),
             .checkSigAdd,
-            .encodeMinimally(publicKey3.xOnly.data),
+            .encodeMinimally(publicKey3.data),
             .checkSigAdd,
             .constant(2),
             .equal

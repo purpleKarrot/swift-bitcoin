@@ -227,7 +227,7 @@ extension BitcoinTransaction {
         let internalKeyData = control.dropFirst().prefix(XOnlyPublicKey.keyLength)
 
         // Fail if this point is not on the curve.
-        guard let internalKey = PublicKey(xOnly: internalKeyData) else { throw ScriptError.invalidTaprootPublicKey }
+        guard let internalKey = XOnlyPublicKey(internalKeyData) else { throw ScriptError.invalidTaprootPublicKey }
 
         // Let v = c[0] & 0xfe and call it the leaf version
         let leafVersion = control[0] & 0xfe
