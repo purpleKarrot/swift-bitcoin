@@ -31,7 +31,7 @@ public struct KeyPair {
         return PublicKey(implementation: pubkey)
     }
 
-    /// This is the same as calling `publicKey.xOnly`
+    /// This is the same as `publicKey.xOnly`
     public var xOnlyPublicKey: XOnlyPublicKey {
         var xonly = secp256k1_xonly_pubkey()
         let result = withUnsafePointer(to: self.implementation) { keypair in

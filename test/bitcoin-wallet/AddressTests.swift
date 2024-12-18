@@ -31,7 +31,7 @@ struct AddressTests {
         #expect(anyAddressSegwit == anyAddressSegwitAgain)
         #expect(anyAddressLegacy != anyAddressSegwit)
 
-        let internalKey = secretKey.xOnlyPublicKey
+        let internalKey = KeyPair(secretKey).xOnlyPublicKey
         // The resulting output key will have odd-y parity in this case, but TaprootAddress will store it with even-y because it only will encode its x-only representation.
         #expect(internalKey.taprootOutputKey().hasOddY)
         let taprootAddress = TaprootAddress(internalKey)

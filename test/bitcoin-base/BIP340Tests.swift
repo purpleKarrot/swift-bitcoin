@@ -37,7 +37,9 @@ struct BIP340Tests {
 
             #expect(internalKey + SecretKey(tweak)! == outputKey)
 
-            let tweakedSecretKey = secretKey.tweakXOnly(tweak)
+            var keypair = KeyPair(secretKey)
+            keypair.tweakXOnly(SecretKey(tweak)!)
+            let tweakedSecretKey = keypair.secretKey
             let altSignature = Signature(hash: msgData, secretKey: tweakedSecretKey, type: .schnorr, additionalEntropy: auxRnd)
             let verificationResult = altSignature.verify(hash: msgData, publicKey: outputKey)
             #expect(verificationResult)

@@ -255,9 +255,9 @@ struct BaseDocumentationExamples {
         let sk = SecretKey()
         let sk1 = SecretKey(); let sk2 = SecretKey(); let sk3 = SecretKey()
         let internalKey = sk.taprootInternalKey
-        let publicKey1 = sk1.xOnlyPublicKey
-        let publicKey2 = sk2.xOnlyPublicKey
-        let publicKey3 = sk3.xOnlyPublicKey
+        let publicKey1 = KeyPair(sk1).xOnlyPublicKey
+        let publicKey2 = KeyPair(sk2).xOnlyPublicKey
+        let publicKey3 = KeyPair(sk3).xOnlyPublicKey
 
         let tapscript = BitcoinScript([
             .encodeMinimally(publicKey1.data),

@@ -2,7 +2,7 @@ import Foundation
 import LibSECP256k1
 
 /// Elliptic curve SECP256K1 secret key.
-public struct SecretKey: Equatable, CustomStringConvertible, HexRepresentable {
+public struct SecretKey: Equatable, CustomStringConvertible, Codable, HexRepresentable {
     var implementation: [UInt8]
 
     init(implementation: [UInt8]) {
@@ -40,9 +40,9 @@ public struct SecretKey: Equatable, CustomStringConvertible, HexRepresentable {
         return .init(implementation: pubkey)
     }
 
-    package var xOnlyPublicKey: XOnlyPublicKey {
-        KeyPair(self).xOnlyPublicKey
-    }
+//    package var xOnlyPublicKey: XOnlyPublicKey {
+//        KeyPair(self).xOnlyPublicKey
+//    }
 
     public func sign(_ message: String, signatureType: SignatureType = .ecdsa, recoverCompressedKeys: Bool = true) -> Signature? {
         .init(message: message, secretKey: self, type: signatureType, recoverCompressedKeys: recoverCompressedKeys)
@@ -52,12 +52,12 @@ public struct SecretKey: Equatable, CustomStringConvertible, HexRepresentable {
         .init(hash: hash, secretKey: self, type: signatureType, recoverCompressedKeys: recoverCompressedKeys)
     }
 
-    /// There is no such thing as an x-only _secret_ key. This is to differenciate taproot x-only tweaking from BIP32 derivation EC tweaking. This functions is used in BIP341 tests.
-    public func tweakXOnly(_ tweak: Data) -> SecretKey {
-        var keypair = KeyPair(self)
-        keypair.tweakXOnly(SecretKey(tweak)!)
-        return keypair.secretKey
-    }
+//    /// There is no such thing as an x-only _secret_ key. This is to differenciate taproot x-only tweaking from BIP32 derivation EC tweaking. This functions is used in BIP341 tests.
+//    public func tweakXOnly(_ tweak: Data) -> SecretKey {
+//        var keypair = KeyPair(self)
+//        keypair.tweakXOnly(SecretKey(tweak)!)
+//        return keypair.secretKey
+//    }
 
     public static let keyLength = 32
 }

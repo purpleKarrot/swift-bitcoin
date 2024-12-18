@@ -455,14 +455,16 @@ struct BIP341Tests {
             let expectedWitness = testCase.expectedWitness
 
             let secretKey = try #require(SecretKey(secretKeyData))
-            let internalPublicKey = secretKey.xOnlyPublicKey
+            let internalPublicKey = KeyPair(secretKey).xOnlyPublicKey
             let internalPublicKeyData = internalPublicKey.data
             #expect(internalPublicKeyData == expectedInternalPublicKey)
 
             let tweak = internalPublicKey.tapTweak(merkleRoot: merkleRoot)
             #expect(tweak == expectedTweak)
 
-            let tweakedSecretKey = secretKey.tweakXOnly(tweak)
+            var keypair = KeyPair(secretKey)
+            keypair.tweakXOnly(SecretKey(tweak)!)
+            let tweakedSecretKey = keypair.secretKey
             #expect(tweakedSecretKey.data == expectedTweakedSecretKey)
 
             let hasher = SignatureHash(transaction: tx, input: inputIndex, prevouts: utxosSpent, sighashType: sighashType)

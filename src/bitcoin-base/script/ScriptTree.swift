@@ -125,7 +125,7 @@ public indirect enum ScriptTree: Equatable, Sendable {
     }
 
     public func getOutputKey(secretKey: SecretKey) -> Data {
-        let internalKey = secretKey.xOnlyPublicKey
+        let internalKey = KeyPair(secretKey).xOnlyPublicKey
         let outputKey = internalKey.taprootOutputKey(self)
         return outputKey.xOnly.data
     }

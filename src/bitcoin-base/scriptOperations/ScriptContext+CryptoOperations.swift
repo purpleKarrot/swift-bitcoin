@@ -163,7 +163,7 @@ extension ScriptContext {
         }
         // Only compressed keys are accepted in segwit
         if sigVersion == .witnessV0 && config.contains(.witnessCompressedPublicKey) {
-            guard let _ = PublicKey(compressed: publicKeyData, skipCheck: true) else {
+            guard let _ = PublicKey(compressed: publicKeyData) else {
                 throw ScriptError.invalidPublicKeyEncoding
             }
         }

@@ -45,8 +45,7 @@ extension XOnlyPublicKey: Comparable {
         cmp(lhs, rhs) == 0
     }
 
-    private static func cmp(_ lhs: XOnlyPublicKey, _ rhs: XOnlyPublicKey) -> Int32
-    {
+    private static func cmp(_ lhs: XOnlyPublicKey, _ rhs: XOnlyPublicKey) -> Int32 {
         withUnsafePointer(to: lhs.implementation) { lhs in
             withUnsafePointer(to: rhs.implementation) { rhs in
                 secp256k1_xonly_pubkey_cmp(secp256k1_context_static, lhs, rhs)

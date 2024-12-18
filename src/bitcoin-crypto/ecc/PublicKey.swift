@@ -10,13 +10,6 @@ public struct PublicKey: Sendable, CustomStringConvertible, Codable, HexRepresen
         self.implementation = implementation
     }
 
-    public init?(_ hex: String, skipCheck: Bool = false) {
-        guard let data = Data(hex: hex) else {
-            return nil
-        }
-        self.init(data)
-    }
-
     public init?(xOnly data: Data, hasEvenY: Bool = true) {
         guard data.count == XOnlyPublicKey.keyLength else {
             return nil
@@ -25,7 +18,7 @@ public struct PublicKey: Sendable, CustomStringConvertible, Codable, HexRepresen
     }
 
     /// BIP143: Checks that the public key is compressed.
-    public init?<D: DataProtocol>(compressed data: D, skipCheck: Bool = false) {
+    public init?<D: DataProtocol>(compressed data: D) {
         guard data.count == PublicKey.compressedLength &&
             (data.first! == Self.tagEven || data.first! == Self.tagOdd)
         else { return nil }
@@ -34,8 +27,7 @@ public struct PublicKey: Sendable, CustomStringConvertible, Codable, HexRepresen
 
     /// Used mainly for Satoshi's hard-coded key (genesis block).
     /// Checks that the public key is uncompressed.
-    public init?<D: DataProtocol>(uncompressed data: D, skipCheck: Bool = false)
-    {
+    public init?<D: DataProtocol>(uncompressed data: D) {
         guard data.count == PublicKey.uncompressedLength && data.first! == Self.tagUncompressed
         else { return nil }
         self.init(Data(data))

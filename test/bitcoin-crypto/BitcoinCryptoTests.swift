@@ -77,7 +77,9 @@ struct BitcoinCryptoTests {
 
         // Tweak
         let tweak = Data(Hash256.hash(data: "I am Satoshi.".data(using: .utf8)!))
-        let tweakedSecretKey = secretKey.tweakXOnly(tweak)
+        var keypair = KeyPair(secretKey)
+        keypair.tweakXOnly(SecretKey(tweak)!)
+        let tweakedSecretKey = keypair.secretKey
         let signature2 = try #require(tweakedSecretKey.sign(message, signatureType: .schnorr))
 
         let tweakedPublicKey = PublicKey(publicKey.xOnly + SecretKey(tweak)!)

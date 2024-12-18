@@ -5,13 +5,15 @@ import BitcoinCrypto
 extension SecretKey {
 
     public var taprootInternalKey: XOnlyPublicKey {
-        self.xOnlyPublicKey
+        KeyPair(self).xOnlyPublicKey
     }
 
     public func taprootSecretKey(_ scriptTree: ScriptTree? = .none) -> Self {
         let merkleRoot = if let scriptTree { scriptTree.calcMerkleRoot().1 } else { Data() }
-        let tweak = taprootInternalKey.tapTweak(merkleRoot: merkleRoot)
-        return tweakXOnly(tweak)
+        let tweak = SecretKey(taprootInternalKey.tapTweak(merkleRoot: merkleRoot))!
+        var keypair = KeyPair(self)
+        keypair.tweakXOnly(tweak)
+        return keypair.secretKey
     }
 }
 
