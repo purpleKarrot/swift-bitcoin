@@ -113,7 +113,7 @@ extension BitcoinTransaction {
             guard let witnessVersion, let witnessProgram else { preconditionFailure() }
             if witnessVersion == 0 {
                 try verifyWitness(&context, witnessVersion: witnessVersion, witnessProgram: witnessProgram)
-            } else if witnessVersion == 1 && witnessProgram.count == PublicKey.xOnlyLength && !isPayToScriptHash {
+            } else if witnessVersion == 1 && witnessProgram.count == XOnlyPublicKey.keyLength && !isPayToScriptHash {
                 // BIP341
                 try verifyTaproot(&context, witnessVersion: witnessVersion, witnessProgram: witnessProgram)
             } else if config.contains(.discourageUpgradableWitnessProgram) {
@@ -224,7 +224,7 @@ extension BitcoinTransaction {
 
         // Let p = c[1:33] and let P = lift_x(int(p)) where lift_x and [:] are defined as in BIP340. Fail if this point is not on the curve.
         // q is referred to as taproot output key and p as taproot internal key.
-        let internalKeyData = control.dropFirst().prefix(PublicKey.xOnlyLength)
+        let internalKeyData = control.dropFirst().prefix(XOnlyPublicKey.keyLength)
 
         // Fail if this point is not on the curve.
         guard let internalKey = PublicKey(xOnly: internalKeyData) else { throw ScriptError.invalidTaprootPublicKey }

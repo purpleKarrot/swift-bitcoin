@@ -38,7 +38,7 @@ extension BitcoinScript {
     }
 
     var isPayToTaproot: Bool {
-        if size == PublicKey.xOnlyLength + 2,
+        if size == XOnlyPublicKey.keyLength + 2,
            operations.count == 2,
            operations[0] == .constant(1),
            case .pushBytes(_) = operations[1] { true } else { false }

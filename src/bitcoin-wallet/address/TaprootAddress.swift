@@ -46,7 +46,7 @@ public struct TaprootAddress: BitcoinAddress {
     public let outputKey: PublicKey
 
     public var description: String {
-        try! SegwitAddressEncoder(hrp: network.bech32HRP, version: 1).encode(outputKey.xOnlyData)
+        try! SegwitAddressEncoder(hrp: network.bech32HRP, version: 1).encode(outputKey.xOnly.data)
     }
 
     public var script: BitcoinScript {

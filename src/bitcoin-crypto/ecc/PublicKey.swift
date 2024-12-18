@@ -3,7 +3,7 @@ import Foundation
 import LibSECP256k1
 
 /// Elliptic curve SECP256K1 public key.
-public struct PublicKey: Sendable {
+public struct PublicKey: Sendable, CustomStringConvertible, Codable, HexRepresentable {
     private var implementation: secp256k1_pubkey
 
     init(implementation: secp256k1_pubkey) {
@@ -17,27 +17,15 @@ public struct PublicKey: Sendable {
     ///
     ///   Requires global signing context to be initialized.
     public init(_ secretKey: SecretKey, requireEvenY: Bool = false) {
-        let secretKeyBytes = [UInt8](secretKey.data)
-
         if requireEvenY {
-            var keypair = secp256k1_keypair()
-            guard secp256k1_keypair_create(eccSigningContext, &keypair, secretKeyBytes) != 0 else {
-                preconditionFailure()
-            }
-            var xonlyPubkey = secp256k1_xonly_pubkey()
-            guard secp256k1_keypair_xonly_pub(secp256k1_context_static, &xonlyPubkey, nil, &keypair) != 0 else {
-                preconditionFailure()
-            }
-            var xonlyPubkeyBytes = [UInt8](repeating: 0, count: PublicKey.xOnlyLength)
-            guard secp256k1_xonly_pubkey_serialize(secp256k1_context_static, &xonlyPubkeyBytes, &xonlyPubkey) != 0 else {
-                preconditionFailure()
-            }
-            self.init(Data([Self.publicKeySerializationTagEven] + xonlyPubkeyBytes))!
+            let keypair = KeyPair(secretKey)
+            let xonly = keypair.xOnlyPublicKey
+            self.init(Data([Self.tagEven] + xonly.data))!
             return
         }
 
         var pubkey = secp256k1_pubkey()
-        guard secp256k1_ec_pubkey_create(eccSigningContext, &pubkey, secretKeyBytes) != 0 else {
+        guard secp256k1_ec_pubkey_create(eccSigningContext, &pubkey, secretKey.implementation) != 0 else {
             preconditionFailure()
         }
         self.init(implementation: pubkey)
@@ -51,16 +39,16 @@ public struct PublicKey: Sendable {
     }
 
     public init?(xOnly data: Data, hasEvenY: Bool = true) {
-        guard data.count == PublicKey.xOnlyLength else {
+        guard data.count == XOnlyPublicKey.keyLength else {
             return nil
         }
-        self.init([hasEvenY ? Self.publicKeySerializationTagEven: Self.publicKeySerializationTagOdd] + data)
+        self.init([hasEvenY ? Self.tagEven: Self.tagOdd] + data)
     }
 
     /// BIP143: Checks that the public key is compressed.
     public init?<D: DataProtocol>(compressed data: D, skipCheck: Bool = false) {
         guard data.count == PublicKey.compressedLength &&
-            (data.first! == Self.publicKeySerializationTagEven || data.first! == Self.publicKeySerializationTagOdd)
+            (data.first! == Self.tagEven || data.first! == Self.tagOdd)
         else { return nil }
         self.init(Data(data))
     }
@@ -69,9 +57,7 @@ public struct PublicKey: Sendable {
     /// Checks that the public key is uncompressed.
     public init?<D: DataProtocol>(uncompressed data: D, skipCheck: Bool = false)
     {
-        guard
-            data.count == PublicKey.uncompressedLength &&
-            data.first! == Self.publicKeySerializationTagUncompressed
+        guard data.count == PublicKey.uncompressedLength && data.first! == Self.tagUncompressed
         else { return nil }
         self.init(Data(data))
     }
@@ -104,16 +90,23 @@ public struct PublicKey: Sendable {
     private func serialize(length: Int, flags: UInt32) -> Data {
         var len = length
         var bytes = [UInt8](repeating: 0, count: length)
-        withUnsafePointer(to: self.implementation) { pubkey in
-            let result = secp256k1_ec_pubkey_serialize(
-                secp256k1_context_static, &bytes, &len, pubkey, flags)
-            assert(result != 0)
+        let result = withUnsafePointer(to: self.implementation) { pubkey in
+            secp256k1_ec_pubkey_serialize(secp256k1_context_static, &bytes, &len, pubkey, flags)
         }
+        assert(result != 0)
         assert(len == length)
         return Data(bytes)
     }
 
-    public var xOnlyData: Data { data.dropFirst() }
+    public var xOnly: XOnlyPublicKey {
+        var xonly = secp256k1_xonly_pubkey()
+        var parity: Int32 = -1 // TODO: communicate back to caller
+        let result = withUnsafePointer(to: self.implementation) { pubkey in
+            secp256k1_xonly_pubkey_from_pubkey(secp256k1_context_static, &xonly, &parity, pubkey)
+        }
+        assert(result != 0)
+        return .init(implementation: xonly)
+    }
 
     private var xOnlyDataChecked: (x: Data, parity: Bool) {
         var parity: Int32 = -1
@@ -124,7 +117,7 @@ public struct PublicKey: Sendable {
             }
         }
 
-        var xOnlyPubkeyBytes = [UInt8](repeating: 0, count: PublicKey.xOnlyLength)
+        var xOnlyPubkeyBytes = [UInt8](repeating: 0, count: XOnlyPublicKey.keyLength)
         guard secp256k1_xonly_pubkey_serialize(secp256k1_context_static, &xOnlyPubkeyBytes, &xonlyPubkey) != 0 else {
             preconditionFailure()
         }
@@ -145,7 +138,7 @@ public struct PublicKey: Sendable {
 
     public var hasEvenY: Bool {
         if data.count == PublicKey.compressedLength {
-            data.first! == Self.publicKeySerializationTagEven
+            data.first! == Self.tagEven
         } else {
             data.last! & 1 == 0 // we look at the least significant bit of the y coordinate
         }
@@ -153,41 +146,15 @@ public struct PublicKey: Sendable {
 
     public var hasOddY: Bool {
         if data.count == PublicKey.compressedLength {
-            data.first! == Self.publicKeySerializationTagOdd
+            data.first! == Self.tagOdd
         } else {
             data.last! & 1 == 1
         }
     }
 
-    /// Internal key is an x-only public key.
-    public func tweakXOnly(_ tweak: Data) -> PublicKey {
-        let xOnlyPublicKeyBytes = [UInt8](xOnlyData)
-        let tweakBytes = [UInt8](tweak)
-
-        // Base point (x)
-        var xonlyPubkey = secp256k1_xonly_pubkey()
-        guard secp256k1_xonly_pubkey_parse(secp256k1_context_static, &xonlyPubkey, xOnlyPublicKeyBytes) != 0 else {
-            preconditionFailure()
-        }
-
-        var pubkey = secp256k1_pubkey()
-        guard secp256k1_xonly_pubkey_tweak_add(secp256k1_context_static, &pubkey, &xonlyPubkey, tweakBytes) != 0 else {
-            preconditionFailure()
-        }
-
-        let publicKeyBytes: [UInt8] = .init(unsafeUninitializedCapacity: PublicKey.compressedLength) { buf, len in
-            len = Self.compressedLength
-            let result = secp256k1_ec_pubkey_serialize(secp256k1_context_static, buf.baseAddress!, &len, &pubkey, UInt32(SECP256K1_EC_COMPRESSED))
-            assert(result != 0)
-            assert(len == PublicKey.compressedLength)
-
-        }
-        return PublicKey(Data(publicKeyBytes))!
-    }
-
     package func checkTweak(_ tweakData: Data, outputKey: PublicKey) -> Bool {
-        let internalKeyBytes = [UInt8](xOnlyData)
-        let outputKeyBytes = [UInt8](outputKey.xOnlyData)
+        let internalKeyBytes = [UInt8](xOnly.data)
+        let outputKeyBytes = [UInt8](outputKey.xOnly.data)
         let tweakBytes = [UInt8](tweakData)
 
         var xonlyPubkey = secp256k1_xonly_pubkey()
@@ -201,28 +168,12 @@ public struct PublicKey: Sendable {
 
     public static let uncompressedLength = 65
     public static let compressedLength = 33
-    public static let xOnlyLength = 32
 
-    public static let publicKeySerializationTagEven = UInt8(SECP256K1_TAG_PUBKEY_EVEN)
-    public static let publicKeySerializationTagOdd = UInt8(SECP256K1_TAG_PUBKEY_ODD)
-    public static let publicKeySerializationTagUncompressed = UInt8(SECP256K1_TAG_PUBKEY_UNCOMPRESSED)
+    public static let tagEven = UInt8(SECP256K1_TAG_PUBKEY_EVEN)
+    public static let tagOdd = UInt8(SECP256K1_TAG_PUBKEY_ODD)
+    public static let tagUncompressed = UInt8(SECP256K1_TAG_PUBKEY_UNCOMPRESSED)
 
     public static let satoshi = PublicKey(uncompressed: [0x04, 0x67, 0x8a, 0xfd, 0xb0, 0xfe, 0x55, 0x48, 0x27, 0x19, 0x67, 0xf1, 0xa6, 0x71, 0x30, 0xb7, 0x10, 0x5c, 0xd6, 0xa8, 0x28, 0xe0, 0x39, 0x09, 0xa6, 0x79, 0x62, 0xe0, 0xea, 0x1f, 0x61, 0xde, 0xb6, 0x49, 0xf6, 0xbc, 0x3f, 0x4c, 0xef, 0x38, 0xc4, 0xf3, 0x55, 0x04, 0xe5, 0x1e, 0xc1, 0x12, 0xde, 0x5c, 0x38, 0x4d, 0xf7, 0xba, 0x0b, 0x8d, 0x57, 0x8a, 0x4c, 0x70, 0x2b, 0x6b, 0xf1, 0x1d, 0x5f])!
-}
-
-// MARK: Codable
-extension PublicKey: Codable {
-    public init(from decoder: Decoder) throws {
-        let string = try String(from: decoder)
-        guard let this = PublicKey(string) else {
-            preconditionFailure()
-        }
-        self = this
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        try self.data.hex.encode(to: encoder)
-    }
 }
 
 // MARK: Comparable
@@ -244,31 +195,24 @@ extension PublicKey: Comparable {
     }
 }
 
-// MARK: CustomStringConvertible
-extension PublicKey: CustomStringConvertible {
-    public var description: String {
-        self.data.hex
-    }
-}
-
 // MARK: Operators
 extension PublicKey {
     public static prefix func - (arg: PublicKey) -> PublicKey {
         var copy = arg
-        withUnsafeMutablePointer(to: &copy.implementation) { pubkey in
-            let result = secp256k1_ec_pubkey_negate(secp256k1_context_static, pubkey)
-            assert(result != 0)
+        let result = withUnsafeMutablePointer(to: &copy.implementation) { pubkey in
+            secp256k1_ec_pubkey_negate(secp256k1_context_static, pubkey)
         }
+        assert(result != 0)
         return copy
     }
 
     public static func + (lhs: PublicKey, rhs: PublicKey) -> PublicKey {
         var combined: secp256k1_pubkey = .init()
         withUnsafePointer(to: lhs.implementation) { lhs in
-            withUnsafePointer(to: rhs.implementation) { rhs in
-                let result = secp256k1_ec_pubkey_combine2(secp256k1_context_static, &combined, lhs, rhs)
-                assert(result != 0)
+            let result = withUnsafePointer(to: rhs.implementation) { rhs in
+                secp256k1_ec_pubkey_combine2(secp256k1_context_static, &combined, lhs, rhs)
             }
+            assert(result != 0)
         }
         return PublicKey(implementation: combined)
     }

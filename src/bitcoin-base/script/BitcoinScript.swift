@@ -172,7 +172,7 @@ public struct BitcoinScript: Equatable, Sendable {
     }
 
     package static func payToTaproot(_ outputKey: PublicKey) -> Self {
-        [.constant(1), .pushBytes(outputKey.xOnlyData)]
+        [.constant(1), .pushBytes(outputKey.xOnly.data)]
     }
 
     public static func dataCarrier(_ message: String) -> Self {

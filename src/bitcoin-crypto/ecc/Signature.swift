@@ -437,7 +437,7 @@ private func verifySchnorr(signatureData: Data, hash: Data, publicKey: PublicKey
     // guard !publicKeyData.isEmpty else { return false }
 
     let signatureBytes = [UInt8](signatureData)
-    let publicKeyBytes = [UInt8](publicKey.xOnlyData)
+    let publicKeyBytes = [UInt8](publicKey.xOnly.data)
     let hashBytes = [UInt8](hash)
 
     var xonlyPubkey = secp256k1_xonly_pubkey()

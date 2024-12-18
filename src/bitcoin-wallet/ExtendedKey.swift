@@ -112,13 +112,8 @@ public struct ExtendedKey {
         let hmacResult = Data(hmac.finalize())
         let chaincode = hmacResult.dropFirst(32)
         let tweak = SecretKey(hmacResult.prefix(32))!
-        let newSecretKey: SecretKey? = secretKey.map { secretKey in
-            secretKey.tweak(tweak.data)
-        }
-
-        let newPublicKey: PublicKey? = self.publicKey.map { publicKey in
-            publicKey + tweak
-        }
+        let newSecretKey = secretKey.map { $0 + tweak }
+        let newPublicKey = self.publicKey.map { $0 + tweak }
 
         guard let ret = try? Self(secretKey: newSecretKey, publicKey: newPublicKey, chaincode: chaincode, fingerprint: Int(fingerprint), depth: depth, keyIndex: keyIndex, mainnet: isMainnet) else {
             preconditionFailure()

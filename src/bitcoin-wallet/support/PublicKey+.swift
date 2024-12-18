@@ -7,7 +7,7 @@ extension PublicKey {
     var xOnlyNormalized: Self? {
         if hasEvenY {
             self
-        } else if let normalized = PublicKey(xOnly: xOnlyData) {
+        } else if let normalized = PublicKey(xOnly: xOnly.data) {
             normalized
         } else {
             .none

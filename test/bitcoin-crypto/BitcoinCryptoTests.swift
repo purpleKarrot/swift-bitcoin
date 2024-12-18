@@ -80,7 +80,7 @@ struct BitcoinCryptoTests {
         let tweakedSecretKey = secretKey.tweakXOnly(tweak)
         let signature2 = try #require(tweakedSecretKey.sign(message, signatureType: .schnorr))
 
-        let tweakedPublicKey = publicKey.tweakXOnly(tweak)
+        let tweakedPublicKey = publicKey.xOnly + SecretKey(tweak)!
         let valid2 = tweakedPublicKey.verify(signature2, for: message)
         #expect(valid2)
 
