@@ -31,7 +31,7 @@ extension XOnlyPublicKey {
 
     /// Used in BIP341 tests as well as internally.
     package func taprootOutputKey(merkleRoot: Data) -> PublicKey {
-        return self + SecretKey(tapTweak(merkleRoot: merkleRoot))!
+        return .init(self + SecretKey(tapTweak(merkleRoot: merkleRoot))!)
     }
 
     /// Used exclusively  in `BIP341Tests`.

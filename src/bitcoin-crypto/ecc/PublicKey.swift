@@ -4,7 +4,7 @@ import LibSECP256k1
 
 /// Elliptic curve SECP256K1 public key.
 public struct PublicKey: Sendable, CustomStringConvertible, Codable, HexRepresentable {
-    private var implementation: secp256k1_pubkey
+    var implementation: secp256k1_pubkey
 
     init(implementation: secp256k1_pubkey) {
         self.implementation = implementation
@@ -79,32 +79,11 @@ public struct PublicKey: Sendable, CustomStringConvertible, Codable, HexRepresen
 
     public var xOnly: XOnlyPublicKey {
         var xonly = secp256k1_xonly_pubkey()
-        var parity: Int32 = -1 // TODO: communicate back to caller
         let result = withUnsafePointer(to: self.implementation) { pubkey in
-            secp256k1_xonly_pubkey_from_pubkey(secp256k1_context_static, &xonly, &parity, pubkey)
+            secp256k1_xonly_pubkey_from_pubkey(secp256k1_context_static, &xonly, nil, pubkey)
         }
         assert(result != 0)
         return .init(implementation: xonly)
-    }
-
-    private var xOnlyDataChecked: (x: Data, parity: Bool) {
-        var parity: Int32 = -1
-        var xonlyPubkey = secp256k1_xonly_pubkey()
-        withUnsafePointer(to: self.implementation) { pubkey in
-            guard secp256k1_xonly_pubkey_from_pubkey(secp256k1_context_static, &xonlyPubkey, &parity, pubkey) != 0 else {
-                preconditionFailure()
-            }
-        }
-
-        var xOnlyPubkeyBytes = [UInt8](repeating: 0, count: XOnlyPublicKey.keyLength)
-        guard secp256k1_xonly_pubkey_serialize(secp256k1_context_static, &xOnlyPubkeyBytes, &xonlyPubkey) != 0 else {
-            preconditionFailure()
-        }
-
-        return (
-            x: Data(xOnlyPubkeyBytes),
-            parity: parity == 1
-        )
     }
 
     public func matches(_ secretKey: SecretKey) -> Bool {

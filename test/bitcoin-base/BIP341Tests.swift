@@ -178,7 +178,7 @@ struct BIP341Tests {
         let internalKey = try #require(XOnlyPublicKey(Data(givenInternalPubkey)))
         let (merkleRoot, leafHashes, controlBlocks) = internalKey.computeControlBlocks(givenScriptTree)
         let tweak = internalKey.tapTweak(merkleRoot: merkleRoot)
-        let tweakedPubkeyData = (internalKey + SecretKey(tweak)!).xOnly.data
+        let tweakedPubkeyData = PublicKey(internalKey + SecretKey(tweak)!).xOnly.data
         let scriptPubKey = BitcoinScript([.constant(1), .pushBytes(tweakedPubkeyData)]).data
 
         // BIP350

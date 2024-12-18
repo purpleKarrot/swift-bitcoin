@@ -244,7 +244,7 @@ extension BitcoinTransaction {
         //let parity = (control[0] & 0x01) != 0
         let hasEvenY = (control[0] & 0x01) == 0
         let outputKey = PublicKey(xOnly: outputKeyData, hasEvenY: hasEvenY)! // TODO: Check if this could fail somehow when witness data contains an invalid public key.
-        guard internalKey.checkTweak(tweak, outputKey: outputKey) else {
+        guard internalKey + SecretKey(tweak)! == outputKey else {
             throw ScriptError.invalidTaprootTweak
         }
 

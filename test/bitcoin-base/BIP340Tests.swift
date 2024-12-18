@@ -33,9 +33,9 @@ struct BIP340Tests {
             let auxRnd = Data(getRandBytes(32))
             let internalKey = try #require(XOnlyPublicKey(internalKeyData))
             let tweak = internalKey.tapTweak(merkleRoot: merkleRoot)
-            let outputKey = internalKey + SecretKey(tweak)!
+            let outputKey = PublicKey(internalKey + SecretKey(tweak)!)
 
-            #expect(internalKey.checkTweak(tweak, outputKey: outputKey))
+            #expect(internalKey + SecretKey(tweak)! == outputKey)
 
             let tweakedSecretKey = secretKey.tweakXOnly(tweak)
             let altSignature = Signature(hash: msgData, secretKey: tweakedSecretKey, type: .schnorr, additionalEntropy: auxRnd)
