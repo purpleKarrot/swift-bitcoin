@@ -49,6 +49,21 @@ public struct BlockHeader: Equatable, Sendable {
         id.hex
     }
 
+    var work: DifficultyTarget {
+        var neg: Bool = true
+        var over: Bool = true
+        let target = DifficultyTarget(compact: target, negative: &neg, overflow: &over)
+        guard !neg && !over && !target.isZero else {
+            fatalError()
+        }
+
+        // We need to compute 2**256 / (bnTarget+1), but we can't represent 2**256
+        // as it's too large for an arith_uint256. However, as 2**256 is at least as large
+        // as bnTarget+1, it is equal to ((2**256 - bnTarget - 1) / (bnTarget+1)) + 1,
+        // or ~bnTarget / (bnTarget+1) + 1.
+        return (~target / (target + 1)) + 1;
+    }
+
     // MARK: - Instance Methods
 
     // MARK: - Type Properties
