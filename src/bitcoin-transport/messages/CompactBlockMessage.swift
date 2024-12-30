@@ -7,11 +7,11 @@ import BitcoinBlockchain
 ///
 public struct CompactBlockMessage: Equatable {
 
-    public init(header: BlockHeader, nonce: UInt64, transactionIDs: [Int], transactions: [PrefilledTransaction]) {
+    public init(header: BlockHeader, nonce: UInt64, txIDs: [Int], txs: [PrefilledTx]) {
         self.header = header
         self.nonce = nonce
-        self.transactionIDs = transactionIDs
-        self.transactions = transactions
+        self.txIDs = txIDs
+        self.txs = txs
     }
 
     /// The header of the block being provided.
@@ -30,13 +30,13 @@ public struct CompactBlockMessage: Equatable {
     ///
     /// `shortids_length`: The number of short transaction IDs in shortids (i.e. `block tx count - prefilledtxn_length`)
     ///
-    public let transactionIDs: [Int]
+    public let txIDs: [Int]
 
     /// Used to provide the coinbase transaction and a select few which we expect a peer may be missing.
     ///
     /// `prefilledtxn_length`: The number of prefilled transactions in `prefilledtxn` (i.e. `block tx count - shortids_length`).
     ///
-    public let transactions: [PrefilledTransaction]
+    public let txs: [PrefilledTx]
 }
 
 extension CompactBlockMessage {
@@ -56,30 +56,30 @@ extension CompactBlockMessage {
         self.nonce = nonce
         data = data.dropFirst(MemoryLayout<UInt64>.size)
 
-        guard let transactionIDCount = data.varInt else { return nil }
-        data = data.dropFirst(transactionIDCount.varIntSize)
-        var transactionIDs = [Int]()
-        for _ in 0 ..< transactionIDCount {
+        guard let txIDCount = data.varInt else { return nil }
+        data = data.dropFirst(txIDCount.varIntSize)
+        var txIDs = [Int]()
+        for _ in 0 ..< txIDCount {
             guard data.count >= 6 else { return nil }
             let identifier = (data + Data(count: 2)).withUnsafeBytes {
                 $0.loadUnaligned(as: UInt64.self)
             }
-            transactionIDs.append(Int(identifier))
+            txIDs.append(Int(identifier))
             data = data.dropFirst(6)
         }
-        self.transactionIDs = transactionIDs
+        self.txIDs = txIDs
 
-        guard let transactionCount = data.varInt else { return nil }
-        data = data.dropFirst(transactionCount.varIntSize)
-        var transactions = [PrefilledTransaction]()
+        guard let txCount = data.varInt else { return nil }
+        data = data.dropFirst(txCount.varIntSize)
+        var txs = [PrefilledTx]()
         var previousIndex = -1
-        for _ in 0 ..< transactionIDCount {
-            guard let transaction = PrefilledTransaction(data, previousIndex: previousIndex) else { return nil }
-            previousIndex = transaction.index
-            transactions.append(transaction)
-            data = data.dropFirst(transaction.size)
+        for _ in 0 ..< txIDCount {
+            guard let tx = PrefilledTx(data, previousIndex: previousIndex) else { return nil }
+            previousIndex = tx.index
+            txs.append(tx)
+            data = data.dropFirst(tx.size)
         }
-        self.transactions = transactions
+        self.txs = txs
     }
 
     var data: Data {
@@ -87,8 +87,8 @@ extension CompactBlockMessage {
         var offset = ret.addData(header.data)
         offset = ret.addBytes(nonce, at: offset)
 
-        offset = ret.addData(Data(varInt: UInt64(transactionIDs.count)), at: offset)
-        for identifier in transactionIDs {
+        offset = ret.addData(Data(varInt: UInt64(txIDs.count)), at: offset)
+        for identifier in txIDs {
             let data = withUnsafeBytes(of: UInt64(identifier)) {
                 Data($0)
             }
@@ -96,18 +96,18 @@ extension CompactBlockMessage {
             offset = ret.addData(data.prefix(6), at: offset)
         }
 
-        offset = ret.addData(Data(varInt: UInt64(transactionIDs.count)), at: offset)
+        offset = ret.addData(Data(varInt: UInt64(txIDs.count)), at: offset)
 
         var previousIndex = Int?.none
-        for transaction in transactions {
-            offset = ret.addData(transaction.getData(previousIndex: previousIndex), at: offset)
-            previousIndex = transaction.index
+        for tx in txs {
+            offset = ret.addData(tx.getData(previousIndex: previousIndex), at: offset)
+            previousIndex = tx.index
         }
 
         return ret
     }
 
     var size: Int {
-        BlockHeader.size + MemoryLayout<UInt64>.size + UInt64(transactionIDs.count).varIntSize + transactionIDs.count * 6 + UInt64(transactions.count).varIntSize + transactions.reduce(0) { $0 + $1.size }
+        BlockHeader.size + MemoryLayout<UInt64>.size + UInt64(txIDs.count).varIntSize + txIDs.count * 6 + UInt64(txs.count).varIntSize + txs.reduce(0) { $0 + $1.size }
     }
 }

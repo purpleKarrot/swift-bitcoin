@@ -4,14 +4,14 @@ import BitcoinWallet
 import Foundation
 
 /// Creates an unsigned raw transaction with the specified inputs and outputs.
-struct CreateTransaction: ParsableCommand {
+struct CreateTx: ParsableCommand {
 
     static let configuration = CommandConfiguration(
         abstract: "Creates an unsigned raw transaction with the specified inputs and outputs."
     )
 
     @Option(name: .shortAndLong, help: "The transaction identifier of each input.")
-    var inputTransaction: [String]
+    var inputTx: [String]
 
     @Option(name: .shortAndLong, help: "The ouput index of the corresponding input transaction.")
     var outputIndex: [Int]
@@ -23,24 +23,24 @@ struct CreateTransaction: ParsableCommand {
     var amount: [BitcoinAmount]
 
     mutating func run() throws {
-        guard inputTransaction.count == outputIndex.count else {
+        guard inputTx.count == outputIndex.count else {
             throw ValidationError("The number of input transactions must match the number of output indices provided.")
         }
         guard address.count == amount.count else {
             throw ValidationError("The number of output addresses must match the number of amounts provided.")
         }
-        let outpoints = zip(inputTransaction, outputIndex)
+        let outpoints = zip(inputTx, outputIndex)
         let addressesAmounts = zip(address, amount)
 
         let inputs = try outpoints.map {
-            let (inputTransaction, outputIndex) = $0
-            guard let identifier = Data(hex: inputTransaction) else {
-                throw ValidationError("Invalid input transaction hex: \(inputTransaction)")
+            let (inputTx, outputIndex) = $0
+            guard let identifier = Data(hex: inputTx) else {
+                throw ValidationError("Invalid input transaction hex: \(inputTx)")
             }
-            guard identifier.count == BitcoinTransaction.idLength else {
-                throw ValidationError("Invalid transaction identtifier length: \(inputTransaction)")
+            guard identifier.count == BitcoinTx.idLength else {
+                throw ValidationError("Invalid transaction identtifier length: \(inputTx)")
             }
-            return TransactionInput(outpoint: .init(transaction: identifier, output: outputIndex))
+            return TxIn(outpoint: .init(tx: identifier, output: outputIndex))
         }
 
         let outputs = try addressesAmounts.map {
@@ -51,10 +51,10 @@ struct CreateTransaction: ParsableCommand {
             return address.output(amount)
         }
 
-        let transaction = BitcoinTransaction(
+        let tx = BitcoinTx(
             inputs: inputs,
             outputs: outputs
         )
-        print(transaction.data.hex)
+        print(tx.data.hex)
     }
 }

@@ -9,7 +9,7 @@ struct BaseDocumentationExamples {
         let sk = SecretKey()
 
         // A dummy coinbase transaction (missing some extra information).
-        let fund = BitcoinTransaction(inputs: [
+        let fund = BitcoinTx(inputs: [
             .init(outpoint: .coinbase)
         ], outputs: [
             .init(value: 100, script: .payToPublicKey(sk.publicKey)),
@@ -23,7 +23,7 @@ struct BaseDocumentationExamples {
 
         // A transaction spending all of the outputs from our coinbase transaction.
         // These outpoints all happen to come from the same transaction but they don't necessarilly have to.
-        var spend = BitcoinTransaction(inputs: [
+        var spend = BitcoinTx(inputs: [
             .init(outpoint: fund.outpoint(0)),
             .init(outpoint: fund.outpoint(1)),
             .init(outpoint: fund.outpoint(2)),
@@ -38,7 +38,7 @@ struct BaseDocumentationExamples {
         let prevout2 = fund.outputs[2]
         let prevout3 = fund.outputs[3]
 
-        let hasher = SignatureHash(transaction: spend, input: 0, prevout: prevout0, sighashType: .all)
+        let hasher = SignatureHash(tx: spend, input: 0, prevout: prevout0, sighashType: .all)
 
         // For pay-to-public key we just need to sign the hash and add the signature to the input's unlock script.
         let sighash0 = hasher.value
@@ -75,12 +75,12 @@ struct BaseDocumentationExamples {
     @Test func signMultisigInput() async throws {
         let sk1 = SecretKey(); let sk2 = SecretKey(); let sk3 = SecretKey()
 
-        let fund = BitcoinTransaction(inputs: [.init(outpoint: .coinbase)], outputs: [
+        let fund = BitcoinTx(inputs: [.init(outpoint: .coinbase)], outputs: [
             // Multisig 2-out-of-3
             .init(value: 100, script: .payToMultiSignature(2, of: sk1.publicKey, sk2.publicKey, sk3.publicKey)),
         ])
 
-        var spend = BitcoinTransaction(inputs: [.init(outpoint: fund.outpoint(0))], outputs: [
+        var spend = BitcoinTx(inputs: [.init(outpoint: fund.outpoint(0))], outputs: [
             .init(value: 100)
         ])
 
@@ -90,7 +90,7 @@ struct BaseDocumentationExamples {
         // Same sighash for all signatures
         let input = 0
         let sighashType = SighashType.all
-        let hasher = SignatureHash(transaction: spend, input: input, prevout: prevout, sighashType: sighashType)
+        let hasher = SignatureHash(tx: spend, input: input, prevout: prevout, sighashType: sighashType)
         let sighash0 = hasher.value
 
         let signature0 = sk1.sign(hash: sighash0)
@@ -111,18 +111,18 @@ struct BaseDocumentationExamples {
 
         let redeemScript = BitcoinScript.payToMultiSignature(2, of: sk1.publicKey, sk2.publicKey, sk3.publicKey)
 
-        let fund = BitcoinTransaction(inputs: [.init(outpoint: .coinbase)], outputs: [
+        let fund = BitcoinTx(inputs: [.init(outpoint: .coinbase)], outputs: [
             .init(value: 100, script: .payToScriptHash(redeemScript)),
         ])
 
-        var spend = BitcoinTransaction(inputs: [
+        var spend = BitcoinTx(inputs: [
             .init(outpoint: fund.outpoint(0)),
         ], outputs: [.init(value: 100)])
 
         let prevout = fund.outputs[0]
         let input = 0
         let sighashType = SighashType.all // Same sighash for all signatures
-        let hasher = SignatureHash(transaction: spend, input: input, prevout: prevout, scriptCode: redeemScript.data, sighashType: sighashType)
+        let hasher = SignatureHash(tx: spend, input: input, prevout: prevout, scriptCode: redeemScript.data, sighashType: sighashType)
         let sighash0 = hasher.value
 
         let signature0 = sk1.sign(hash: sighash0)
@@ -142,13 +142,13 @@ struct BaseDocumentationExamples {
         let sk1 = SecretKey(); let sk2 = SecretKey(); let sk3 = SecretKey()
         let redeemScript = BitcoinScript.payToMultiSignature(2, of: sk1.publicKey, sk2.publicKey, sk3.publicKey)
 
-        let fund = BitcoinTransaction(inputs: [
+        let fund = BitcoinTx(inputs: [
             .init(outpoint: .coinbase)
         ], outputs: [
             .init(value: 100, script: .payToWitnessScriptHash(redeemScript)),
         ])
 
-        var spend = BitcoinTransaction(inputs: [
+        var spend = BitcoinTx(inputs: [
             .init(outpoint: fund.outpoint(0)),
         ], outputs: [
             .init(value: 100)
@@ -158,7 +158,7 @@ struct BaseDocumentationExamples {
         let prevout = fund.outputs[0]
         let input = 0
         let sighashType = SighashType.all
-        let hasher = SignatureHash(transaction: spend, input: input, sigVersion: .witnessV0, prevout: prevout, scriptCode: redeemScript.data, sighashType: sighashType)
+        let hasher = SignatureHash(tx: spend, input: input, sigVersion: .witnessV0, prevout: prevout, scriptCode: redeemScript.data, sighashType: sighashType)
         let sighash0 = hasher.value
 
         let signature0 = sk1.sign(hash: sighash0)
@@ -179,14 +179,14 @@ struct BaseDocumentationExamples {
 
         let redeemScript = BitcoinScript.payToWitnessPublicKeyHash(sk.publicKey)
 
-        let fund = BitcoinTransaction(inputs: [.init(outpoint: .coinbase)], outputs: [
+        let fund = BitcoinTx(inputs: [.init(outpoint: .coinbase)], outputs: [
             .init(value: 100, script: .payToScriptHash(redeemScript)),
         ])
 
         let prevout = fund.outputs[0]
 
         // Spending transaction.
-        var spend = BitcoinTransaction(inputs: [
+        var spend = BitcoinTx(inputs: [
             .init(outpoint: fund.outpoint(0)),
         ], outputs: [
             .init(value: 100)
@@ -199,7 +199,7 @@ struct BaseDocumentationExamples {
         // Same sighash for all signatures
         let input = 0
         let sighashType = SighashType.all
-        let hasher = SignatureHash(transaction: spend, input: input, sigVersion: .witnessV0, prevout: prevout, scriptCode: scriptCode, sighashType: sighashType)
+        let hasher = SignatureHash(tx: spend, input: input, sigVersion: .witnessV0, prevout: prevout, scriptCode: scriptCode, sighashType: sighashType)
         let sighash = hasher.value
         let signature = sk.sign(hash: sighash)
         let signatureExt = ExtendedSignature(signature, sighashType)
@@ -217,14 +217,14 @@ struct BaseDocumentationExamples {
         let witnessScript = BitcoinScript.payToMultiSignature(2, of: sk1.publicKey, sk2.publicKey, sk3.publicKey)
         let redeemScript = BitcoinScript.payToWitnessScriptHash(witnessScript)
 
-        let fund = BitcoinTransaction(inputs: [.init(outpoint: .coinbase)], outputs: [
+        let fund = BitcoinTx(inputs: [.init(outpoint: .coinbase)], outputs: [
             .init(value: 100, script: .payToScriptHash(redeemScript)),
         ])
 
         let prevout = fund.outputs[0]
 
         // Spending transaction.
-        var spend = BitcoinTransaction(inputs: [
+        var spend = BitcoinTx(inputs: [
             .init(outpoint: fund.outpoint(0)),
         ], outputs: [
             .init(value: 100)
@@ -233,7 +233,7 @@ struct BaseDocumentationExamples {
         // Same sighash for all signatures
         let input = 0
         let sighashType = SighashType.all
-        let hasher = SignatureHash(transaction: spend, input: input, sigVersion: .witnessV0, prevout: prevout, scriptCode: witnessScript.data, sighashType: sighashType)
+        let hasher = SignatureHash(tx: spend, input: input, sigVersion: .witnessV0, prevout: prevout, scriptCode: witnessScript.data, sighashType: sighashType)
         let sighash0 = hasher.value
 
         let signature0 = sk1.sign(hash: sighash0)
@@ -271,13 +271,13 @@ struct BaseDocumentationExamples {
         ]).data
         let scriptTree = ScriptTree.leaf(0xc0, tapscript)
 
-        let fund = BitcoinTransaction(inputs: [.init(outpoint: .coinbase)], outputs: [
+        let fund = BitcoinTx(inputs: [.init(outpoint: .coinbase)], outputs: [
             .init(value: 100, script: .payToTaproot(internalKey: internalKey, script: scriptTree)),
         ])
 
         let prevouts = [fund.outputs[0]]
         // Spending transaction.
-        var spend = BitcoinTransaction(inputs: [
+        var spend = BitcoinTx(inputs: [
             .init(outpoint: fund.outpoint(0)),
         ], outputs: [.init(value: 100)])
 
@@ -288,7 +288,7 @@ struct BaseDocumentationExamples {
         let (_, leafHashes, controlBlocks) = internalKey.computeControlBlocks(scriptTree)
 
         let sighashType = SighashType?.none
-        let hasher = SignatureHash(transaction: spend, input: input, sigVersion: .witnessV1, prevouts: prevouts, tapscriptExtension: .init(tapLeafHash: leafHashes[leafIndex]), sighashType: sighashType)
+        let hasher = SignatureHash(tx: spend, input: input, sigVersion: .witnessV1, prevouts: prevouts, tapscriptExtension: .init(tapLeafHash: leafHashes[leafIndex]), sighashType: sighashType)
 
         let sighash = hasher.value
         let signature1 = sk1.sign(hash: sighash, signatureType: .schnorr)

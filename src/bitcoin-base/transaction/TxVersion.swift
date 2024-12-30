@@ -1,9 +1,9 @@
 import Foundation
 
-/// The version of a ``BitcoinTransaction``.
+/// The version of a ``BitcoinTx``.
 ///
 /// Version 2 transactions enable use of relative lock times.
-public struct TransactionVersion: Equatable, Comparable, Sendable {
+public struct TxVersion: Equatable, Comparable, Sendable {
 
     private init(_ versionValue: Int) {
         self.versionValue = versionValue
@@ -19,7 +19,7 @@ public struct TransactionVersion: Equatable, Comparable, Sendable {
         UInt32(versionValue)
     }
 
-    public static func < (lhs: TransactionVersion, rhs: TransactionVersion) -> Bool {
+    public static func < (lhs: TxVersion, rhs: TxVersion) -> Bool {
         lhs.versionValue < rhs.versionValue
     }
 
@@ -31,7 +31,7 @@ public struct TransactionVersion: Equatable, Comparable, Sendable {
 }
 
 /// Data extensions.
-extension TransactionVersion {
+extension TxVersion {
 
     init?(_ data: Data) {
         guard data.count >= Self.size else {

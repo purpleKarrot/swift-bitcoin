@@ -13,13 +13,13 @@ extension ScriptContext {
             locktime64 <= UInt32.max
         else { throw ScriptError.invalidLockTimeArgument }
 
-        let locktime = TransactionLocktime(locktime64)
+        let locktime = TxLocktime(locktime64)
 
-        if let blockHeight = locktime.blockHeight, let txBlockHeight = transaction.locktime.blockHeight {
+        if let blockHeight = locktime.blockHeight, let txBlockHeight = tx.locktime.blockHeight {
             if blockHeight > txBlockHeight {
                 throw ScriptError.lockTimeHeightEarly
             }
-        } else if let seconds = locktime.secondsSince1970, let txSeconds = transaction.locktime.secondsSince1970 {
+        } else if let seconds = locktime.secondsSince1970, let txSeconds = tx.locktime.secondsSince1970 {
             if seconds > txSeconds {
                 throw ScriptError.lockTimeSecondsEarly
             }
@@ -27,7 +27,7 @@ extension ScriptContext {
             throw ScriptError.invalidLockTime
         }
 
-        if transaction.inputs[inputIndex].sequence == .final { throw ScriptError.inputSequenceFinal }
+        if tx.inputs[inputIndex].sequence == .final { throw ScriptError.inputSequenceFinal }
     }
 
     /// [BIP112](https://github.com/bitcoin/bips/blob/master/bip-0112.mediawiki)
@@ -44,9 +44,9 @@ extension ScriptContext {
         let sequence = InputSequence(sequence64)
         if sequence.isLocktimeDisabled { return }
         
-        if transaction.version == .v1 { throw ScriptError.minimumTransactionVersionRequired }
+        if tx.version == .v1 { throw ScriptError.minimumTxVersionRequired }
         
-        let txSequence = transaction.inputs[inputIndex].sequence
+        let txSequence = tx.inputs[inputIndex].sequence
         if txSequence.isLocktimeDisabled { throw ScriptError.sequenceLockTimeDisabled }
         
         if let locktimeBlocks = sequence.locktimeBlocks, let txLocktimeBlocks = txSequence.locktimeBlocks {

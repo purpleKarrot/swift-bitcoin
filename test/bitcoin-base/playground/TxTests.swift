@@ -2,7 +2,7 @@ import Testing
 import Foundation
 import BitcoinBase
 
-struct TransactionTests {
+struct TxTests {
 
     @Test("Deserialization")
     func deserialization() throws {
@@ -17,7 +17,7 @@ struct TransactionTests {
         for txInfo in TxInfoItems {
             guard
                 let expectedTransactionData = Data(hex: txInfo.hex),
-                let tx = BitcoinTransaction(expectedTransactionData)
+                let tx = BitcoinTx(expectedTransactionData)
             else {
                 Issue.record("Transaction data could not be decoded."); continue
             }
@@ -56,18 +56,18 @@ struct TransactionTests {
                         Issue.record("Transaction input \(i) coinbase data could not be decoded."); continue
                     }
 
-                    let expectedOutpoint = TransactionOutpoint.coinbase
+                    let expectedOutpoint = TxOutpoint.coinbase
                     #expect(input.outpoint == expectedOutpoint)
 
                     let expectedScript = BitcoinScript(expectedCoinbase)
                     #expect(input.script == expectedScript)
 
                 } else if let txid = vinData.txid, let expectedOutput = vinData.vout, let scriptSig = vinData.scriptSig, let expectedScriptData = Data(hex: scriptSig.hex) {
-                    guard let expectedTransaction = Data(hex: txid) else {
+                    guard let expectedTx = Data(hex: txid) else {
                         Issue.record("Transaction input \(i) transaction ID data could not be decoded."); continue
                     }
 
-                    #expect(input.outpoint.transactionID == expectedTransaction)
+                    #expect(input.outpoint.txID == expectedTx)
                     #expect(input.outpoint.outputIndex == expectedOutput)
                     let expectedScript = BitcoinScript(expectedScriptData)
                     #expect(input.script == expectedScript)

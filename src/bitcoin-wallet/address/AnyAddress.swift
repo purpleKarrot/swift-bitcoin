@@ -12,7 +12,7 @@ public enum AnyAddress: BitcoinAddress {
         else { return nil }
     }
 
-    public func output(_ value: BitcoinBase.BitcoinAmount) -> BitcoinBase.TransactionOutput {
+    public func output(_ value: BitcoinBase.BitcoinAmount) -> BitcoinBase.TxOut {
         let address: any BitcoinAddress = switch self {
         case .legacy(let a): a
         case .segwit(let a): a

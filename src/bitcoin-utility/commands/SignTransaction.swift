@@ -5,7 +5,7 @@ import BitcoinWallet
 import Foundation
 
 /// Signs a transaction input using a private key.
-struct SignTransaction: ParsableCommand {
+struct SignTx: ParsableCommand {
 
     static let configuration = CommandConfiguration(
         abstract: "Signs a transaction input using a private key."
@@ -21,7 +21,7 @@ struct SignTransaction: ParsableCommand {
     var secretKey: String
 
     @Argument(help: "The raw unsigned or partially signed transaction in hex format.")
-    var transaction: String
+    var tx: String
 
     mutating func run() throws {
         guard let secretKeyData = Data(hex: secretKey) else {
@@ -30,22 +30,22 @@ struct SignTransaction: ParsableCommand {
         guard let secretKey = SecretKey(secretKeyData) else {
             throw ValidationError("Invalid secret key data: secretKey")
         }
-        guard let transactionData = Data(hex: transaction) else {
-            throw ValidationError("Invalid hexadecimal value: transaction")
+        guard let txData = Data(hex: tx) else {
+            throw ValidationError("Invalid hexadecimal value: tx")
         }
-        guard let transaction = BitcoinTransaction(transactionData) else {
-            throw ValidationError("Invalid raw transaction data: transaction")
+        guard let tx = BitcoinTx(txData) else {
+            throw ValidationError("Invalid raw transaction data: tx")
         }
         let prevouts = try prevout.map {
             guard let prevoutData = Data(hex: $0) else {
                 throw ValidationError("Invalid hexadecimal value: prevout")
             }
-            guard let prevout = TransactionOutput(prevoutData) else {
+            guard let prevout = TxOut(prevoutData) else {
                 throw ValidationError("Invalid raw prevout data: prevout")
             }
             return prevout
         }
-        let signer = TransactionSigner(transaction: transaction, prevouts: prevouts)
+        let signer = TxSigner(tx: tx, prevouts: prevouts)
         let signed = signer.sign(input: input, with: secretKey)
         print(signed.data.hex)
         destroyECCSigningContext()

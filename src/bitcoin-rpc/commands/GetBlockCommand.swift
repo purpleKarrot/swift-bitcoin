@@ -9,7 +9,7 @@ public struct GetBlockCommand: Sendable {
     internal struct Output: JSONStringConvertible {
         let id: String
         let previous: String
-        let transactions: [String]
+        let txs: [String]
     }
 
     public init(blockchainService: BlockchainService) {
@@ -32,12 +32,12 @@ public struct GetBlockCommand: Sendable {
         guard let block = await blockchainService.getBlock(blockID) else {
             throw RPCError(.invalidParams("blockID"), description: "Block not found.")
         }
-        let transactions = block.transactions.map { $0.id.hex }
+        let txs = block.txs.map { $0.id.hex }
 
         let result = Output(
             id: block.header.idHex,
             previous: block.header.previous.hex,
-            transactions: transactions
+            txs: txs
         )
         return .init(id: request.id, result: JSONObject.string(result.description))
     }

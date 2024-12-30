@@ -2,11 +2,11 @@ import Foundation
 import BitcoinBase
 
 /// BIP152: A `PrefilledTransaction` structure is used in `HeaderAndShortIDs` to provide a list of a few transactions explicitly.
-public struct PrefilledTransaction: Equatable {
+public struct PrefilledTx: Equatable {
 
-    public init(index: Int, transaction: BitcoinTransaction) {
+    public init(index: Int, tx: BitcoinTx) {
         self.index = index
-        self.transaction = transaction
+        self.tx = tx
     }
 
     /// The index into the block at which this transaction is.
@@ -19,10 +19,10 @@ public struct PrefilledTransaction: Equatable {
     ///
     /// As encoded in "tx" messages sent in response to getdata `MSG_TX`.
     /// 
-    public let transaction: BitcoinTransaction
+    public let tx: BitcoinTx
 }
 
-extension PrefilledTransaction {
+extension PrefilledTx {
 
     public init?(_ data: Data, previousIndex: Int) {
         guard data.count >= 1 else { return nil }
@@ -33,9 +33,9 @@ extension PrefilledTransaction {
         self.index = index
         data = data.dropFirst(indexDiff.varIntSize)
 
-        guard let transaction = BitcoinTransaction(data) else { return nil }
-        self.transaction = transaction
-        data = data.dropFirst(transaction.size)
+        guard let tx = BitcoinTx(data) else { return nil }
+        self.tx = tx
+        data = data.dropFirst(tx.size)
     }
 
     func getData(previousIndex: Int?) -> Data {
@@ -47,11 +47,11 @@ extension PrefilledTransaction {
             index
         }
         var offset = ret.addData(Data(varInt: UInt64(indexDiff)))
-        offset = ret.addData(transaction.data, at: offset)
+        offset = ret.addData(tx.data, at: offset)
         return ret
     }
 
     var size: Int {
-        UInt64(index).varIntSize + transaction.size
+        UInt64(index).varIntSize + tx.size
     }
 }

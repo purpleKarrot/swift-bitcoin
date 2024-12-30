@@ -192,7 +192,7 @@ extension ScriptContext {
             throw ScriptError.undefinedSighashType
         }
 
-        let sighash = SignatureHash(transaction: transaction, input: inputIndex, sigVersion: sigVersion, prevout: prevout, scriptCode: scriptCode, sighashType: sighashType).value
+        let sighash = SignatureHash(tx: tx, input: inputIndex, sigVersion: sigVersion, prevout: prevout, scriptCode: scriptCode, sighashType: sighashType).value
         if let publicKey = PublicKey(publicKeyData) {
             return extendedSignature.signature.verify(hash: sighash, publicKey: publicKey)
         }
@@ -213,7 +213,7 @@ extension ScriptContext {
 
             let ext = TapscriptExtension(tapLeafHash: tapLeafHash, keyVersion: keyVersion, codesepPos: codeSeparatorPosition)
             let extendedSignature = try ExtendedSignature(schnorrData: sig)
-            let hasher = SignatureHash(transaction: transaction, input: inputIndex, prevouts: prevouts, tapscriptExtension: ext, sighashType: extendedSignature.sighashType)
+            let hasher = SignatureHash(tx: tx, input: inputIndex, prevouts: prevouts, tapscriptExtension: ext, sighashType: extendedSignature.sighashType)
             let sighash = hasher.signatureHashSchnorr(sighashCache: &sighashCache)
 
             // Validation failure in this case immediately terminates script execution with failure.

@@ -2,8 +2,8 @@ import Foundation
 import BitcoinCrypto
 import BitcoinBase
 
-func calculateMerkleRoot(_ transactions: [BitcoinTransaction]) -> Data {
-    calculateMerkleRoot(transactions.map(\.id))
+func calculateMerkleRoot(_ txs: [BitcoinTx]) -> Data {
+    calculateMerkleRoot(txs.map(\.id))
 }
 
 func calculateMerkleRoot(_ hashes: [Data]) -> Data {

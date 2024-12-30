@@ -26,12 +26,12 @@ struct BlockchainServiceTests {
         #expect(bobMissingBlockIDs == [header1.id])
 
         let bobMissingBlocks = await alice.getBlocks(bobMissingBlockIDs)
-        let (bobMissingBlockHeader, bobMissingBlockTransactions) = bobMissingBlocks[0]
+        let (bobMissingBlockHeader, bobMissingBlockTxs) = bobMissingBlocks[0]
         let block1 = await alice.getBlock(1)
-        #expect(bobMissingBlocks.count == 1 && bobMissingBlockHeader == header1 && bobMissingBlockTransactions == block1.transactions)
+        #expect(bobMissingBlocks.count == 1 && bobMissingBlockHeader == header1 && bobMissingBlockTxs == block1.txs)
 
-        await bob.processBlock(header: block1.header, transactions: block1.transactions)
-        await #expect(bob.transactions.count == 2)
+        await bob.processBlock(header: block1.header, txs: block1.txs)
+        await #expect(bob.txs.count == 2)
     }
 
     /// Tests mining empty blocks, spending a coinbase transaction and mine again.
@@ -54,28 +54,28 @@ struct BlockchainServiceTests {
         }
 
         // Grab block 1's coinbase transaction and output.
-        let previousTransaction = await service.getBlock(1).transactions[0]
-        let prevout = previousTransaction.outputs[0]
+        let previousTx = await service.getBlock(1).txs[0]
+        let prevout = previousTx.outputs[0]
 
         // Create a new transaction spending from the previous transaction's outpoint.
-        let unsignedInput = TransactionInput(outpoint: previousTransaction.outpoint(0))
+        let unsignedInput = TxIn(outpoint: previousTx.outpoint(0))
 
         // Specify the transaction's output. We'll leave 1000 sats on the table to tip miners. We'll re-use the origin address for simplicity.
-        let unsignedTransaction = BitcoinTransaction(
+        let unsignedTx = BitcoinTx(
             inputs: [unsignedInput],
             outputs: [
                 .init(value: 49_99_999_000, script: .payToPublicKeyHash(publicKey))
             ])
 
         // Sign the transaction by first calculating the signature hash.
-        let sighash = SignatureHash(transaction: unsignedTransaction, input: 0, prevout: prevout).value
+        let sighash = SignatureHash(tx: unsignedTx, input: 0, prevout: prevout).value
 
         // Obtain the signature using our secret key and append the signature hash type.
         let signature = Signature(hash: sighash, secretKey: secretKey)
         let signatureData = ExtendedSignature(signature, .all).data
 
         // Sign our input by including the signature and public key.
-        let signedInput = TransactionInput(
+        let signedInput = TxIn(
             outpoint: unsignedInput.outpoint,
             sequence: unsignedInput.sequence,
             script: .init([
@@ -85,17 +85,17 @@ struct BlockchainServiceTests {
             witness: unsignedInput.witness)
 
         // Put the signed input back into the transaction.
-        let signedTransaction = BitcoinTransaction(
-            version: unsignedTransaction.version,
-            locktime: unsignedTransaction.locktime,
+        let signedTx = BitcoinTx(
+            version: unsignedTx.version,
+            locktime: unsignedTx.locktime,
             inputs: [signedInput],
-            outputs: unsignedTransaction.outputs)
+            outputs: unsignedTx.outputs)
 
         // Make sure the transaction was signed correctly by verifying the scripts.
-        #expect(signedTransaction.verifyScript(prevouts: [prevout]))
+        #expect(signedTx.verifyScript(prevouts: [prevout]))
 
         // Submit the signed transaction to the mempool.
-        try await service.addTransaction(signedTransaction)
+        try await service.addTx(signedTx)
         let mempoolBefore = await service.mempool.count
         #expect(mempoolBefore == 1)
 
@@ -105,11 +105,11 @@ struct BlockchainServiceTests {
 
         // Verify the mempool is empty once again.
         #expect(mempoolAfter == 0)
-        let blocks = await service.transactions.count
+        let blocks = await service.txs.count
         #expect(blocks == 102)
-        let lastBlockTtransactions = try #require(await service.transactions.last)
+        let lastBlockTxs = try #require(await service.txs.last)
         // Verify our transaction was confirmed in a block.
-        #expect(lastBlockTtransactions[1] == signedTransaction)
+        #expect(lastBlockTxs[1] == signedTx)
     }
 
     @Test("Difficulty Target")

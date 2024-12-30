@@ -32,7 +32,7 @@ public actor NodeService: Sendable {
     public var state: NodeState
 
     /// Subscription to the bitcoin service's blocks channel.
-    public var blocks = AsyncChannel<TransactionBlock>?.none
+    public var blocks = AsyncChannel<TxBlock>?.none
 
     /// IP address as string.
     var address = IPv6Address?.none
@@ -62,7 +62,7 @@ public actor NodeService: Sendable {
         blocks = await blockchainService.subscribeToBlocks()
     }
 
-    public func handleBlock(_ block: TransactionBlock) async {
+    public func handleBlock(_ block: TxBlock) async {
         await withDiscardingTaskGroup {
             for id in state.peers.keys {
                 $0.addTask {
@@ -79,12 +79,12 @@ public actor NodeService: Sendable {
         }
     }
 
-    public func addTransaction(_ transaction: BitcoinTransaction) async throws {
-        try await blockchainService.addTransaction(transaction)
+    public func addTx(_ tx: BitcoinTx) async throws {
+        try await blockchainService.addTx(tx)
         await withDiscardingTaskGroup {
             for id in state.peers.keys {
                 $0.addTask {
-                    await self.sendTransaction(transaction, to: id)
+                    await self.sendTx(tx, to: id)
                 }
             }
         }
@@ -165,7 +165,7 @@ public actor NodeService: Sendable {
     func makeVersion(for id: UUID) async -> VersionMessage {
         guard let peer = state.peers[id] else { preconditionFailure() }
 
-        let lastBlock = await blockchainService.transactions.count - 1
+        let lastBlock = await blockchainService.txs.count - 1
         return .init(
             protocolVersion: config.version,
             services: config.services,
@@ -189,16 +189,16 @@ public actor NodeService: Sendable {
         enqueue(.sendaddrv2, to: id)
     }
 
-    func sendTransaction(_ transaction: BitcoinTransaction, to id: UUID) async {
+    func sendTx(_ tx: BitcoinTx, to id: UUID) async {
         guard let _ = state.peers[id] else { return }
-        let inventoryMessage = InventoryMessage(items: [.init(type: .witnessTransaction, hash: transaction.witnessID)])
+        let inventoryMessage = InventoryMessage(items: [.init(type: .witnessTx, hash: tx.witnessID)])
         await send(.inv, payload: inventoryMessage.data, to: id)
     }
 
-    func sendBlock(_ block: TransactionBlock, to id: UUID) async {
+    func sendBlock(_ block: TxBlock, to id: UUID) async {
         guard let _ = state.peers[id] else { return }
         let nonce = UInt64.random(in: UInt64.min ... UInt64.max)
-        let compactBlockMesssage = CompactBlockMessage(header: block.header, nonce: nonce, transactionIDs: [block.makeShortTransactionID(for: 0, nonce: nonce)], transactions: [.init(index: 0, transaction: block.transactions[0])])
+        let compactBlockMesssage = CompactBlockMessage(header: block.header, nonce: nonce, txIDs: [block.makeShortTxID(for: 0, nonce: nonce)], txs: [.init(index: 0, tx: block.txs[0])])
         await send(.cmpctblock, payload: compactBlockMesssage.data, to: id)
     }
 
@@ -282,7 +282,7 @@ public actor NodeService: Sendable {
         case .inv:
             try await processInventory(message, from: id)
         case .tx:
-            try await processTransaction(message, from: id)
+            try await processTx(message, from: id)
         case .getblocktxn, .blocktxn, .getaddr, .addrv2, .notfound, .unknown:
             break
         }
@@ -530,11 +530,11 @@ public actor NodeService: Sendable {
     func processBlock(_ message: BitcoinMessage, from id: UUID) async throws {
         guard let _ = state.peers[id] else { preconditionFailure() }
 
-        guard let blockMessage = TransactionBlock(message.payload) else {
+        guard let blockMessage = TxBlock(message.payload) else {
             throw Error.invalidPayload
         }
 
-        await blockchainService.processBlock(header: blockMessage.header, transactions: blockMessage.transactions)
+        await blockchainService.processBlock(header: blockMessage.header, txs: blockMessage.txs)
 
         state.peers[id]?.inTransitBlocks -= 1
 
@@ -554,15 +554,15 @@ public actor NodeService: Sendable {
         if !blockHashes.isEmpty {
             let blocks = await blockchainService.getBlocks(blockHashes)
 
-            for (header, transactions) in blocks {
-                let blockMessage = TransactionBlock(header: header, transactions: transactions)
+            for (header, txs) in blocks {
+                let blockMessage = TxBlock(header: header, txs: txs)
                 enqueue(.block, payload: blockMessage.data, to: id)
             }
         }
 
-        let transactionHashes = getDataMessage.items.filter { $0.type == .witnessTransaction }.map { $0.hash }
-        if !transactionHashes.isEmpty {
-            guard let tx = await blockchainService.getTransaction(transactionHashes[0]) else { return }
+        let txHashes = getDataMessage.items.filter { $0.type == .witnessTx }.map { $0.hash }
+        if !txHashes.isEmpty {
+            guard let tx = await blockchainService.getTx(txHashes[0]) else { return }
             enqueue(.tx, payload: tx.data, to: id)
         }
     }
@@ -575,22 +575,22 @@ public actor NodeService: Sendable {
         }
 
         for item in inventoryMessage.items {
-            guard item.type == .witnessTransaction else { continue }
-            if let _ = await blockchainService.getTransaction(item.hash) { continue }
+            guard item.type == .witnessTx else { continue }
+            if let _ = await blockchainService.getTx(item.hash) { continue }
             let getData = GetDataMessage(items: [
-                .init(type: .witnessTransaction, hash: item.hash)
+                .init(type: .witnessTx, hash: item.hash)
             ])
             await send(.getdata, payload: getData.data, to: id)
         }
     }
 
-    func processTransaction(_ message: BitcoinMessage, from id: UUID) async throws {
+    func processTx(_ message: BitcoinMessage, from id: UUID) async throws {
         guard let _ = state.peers[id] else { preconditionFailure() }
 
-        guard let tx = BitcoinTransaction(message.payload) else {
+        guard let tx = BitcoinTx(message.payload) else {
             throw Error.invalidPayload
         }
-        try await blockchainService.addTransaction(tx)
+        try await blockchainService.addTx(tx)
     }
 
     func processCompactBlock(_ message: BitcoinMessage, from id: UUID) async throws {
@@ -603,7 +603,7 @@ public actor NodeService: Sendable {
         // try await blockchainService.processHeaders([compactBlockMessage.header])
         // TODO: Process header first and then send getblocktxn for the non prefilled ones which we are lacking (check transaction ids)
 
-        await blockchainService.processBlock(header: compactBlockMessage.header, transactions: compactBlockMessage.transactions.map { $0.transaction })
+        await blockchainService.processBlock(header: compactBlockMessage.header, txs: compactBlockMessage.txs.map { $0.tx })
     }
 
     static let minCompactBlocksVersion = 2

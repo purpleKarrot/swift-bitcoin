@@ -1,7 +1,7 @@
 import Foundation
 
-/// The output of a ``BitcoinTransaction``. While unspent also referred to as a _coin_.
-public struct TransactionOutput: Equatable, Sendable {
+/// The output of a ``BitcoinTx``. While unspent also referred to as a _coin_.
+public struct TxOut: Equatable, Sendable {
     
     /// Creates an output out of an amount (value) and a locking script.
     /// - Parameters:
@@ -20,7 +20,7 @@ public struct TransactionOutput: Equatable, Sendable {
 }
 
 /// Data extensions.
-extension TransactionOutput {
+extension TxOut {
 
     package init?(_ data: Data) {
         guard data.count > MemoryLayout<BitcoinAmount>.size else {

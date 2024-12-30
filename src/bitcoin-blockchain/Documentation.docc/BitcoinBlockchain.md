@@ -27,7 +27,7 @@ for _ in 0 ..< 100 {
 …
 
 // Submit the signed transaction to the mempool.
-await service.addTransaction(signedTransaction)
+await service.addTx(signedTx)
 
 // The mempool should now contain our transaction.
 let mempoolBefore = await service.mempool.count
@@ -48,10 +48,10 @@ let mempoolAfter = await service.mempool.count
 let blocks = await service.headers.count
 #expect(blocks == 102)
 
-let lastBlock = await service.transactions.last!
+let lastBlock = await service.txs.last!
 // Verify our transaction was confirmed in a block.
 
-#expect(lastBlock[1] == signedTransaction)
+#expect(lastBlock[1] == signedTx)
 // Our transaction is now confirmed in the blockchain!
 ```
 

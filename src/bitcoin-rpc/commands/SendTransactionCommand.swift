@@ -17,14 +17,14 @@ public struct SendTransactionCommand: Sendable {
 
         precondition(request.method == Self.method)
 
-        guard case let .list(objects) = RPCObject(request.params), let first = objects.first, case let .string(transactionHex) = first else {
+        guard case let .list(objects) = RPCObject(request.params), let first = objects.first, case let .string(txHex) = first else {
             throw RPCError(.invalidParams("transaction"), description: "Transaction (hex string) is required.")
         }
-        guard let transactionData = Data(hex: transactionHex), let transaction = BitcoinTransaction(transactionData) else {
+        guard let txData = Data(hex: txHex), let tx = BitcoinTx(txData) else {
             throw RPCError(.invalidParams("transaction"), description: "Transaction hex encoding or content invalid.")
         }
         do {
-            try await bitcoinNode.addTransaction(transaction)
+            try await bitcoinNode.addTx(tx)
         } catch {
             throw RPCError(.invalidParams("transaction"), description: "Transaction was not accepted into the mempool.")
         }

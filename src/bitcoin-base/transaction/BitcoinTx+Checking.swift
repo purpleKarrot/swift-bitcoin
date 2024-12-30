@@ -1,7 +1,7 @@
 import Foundation
 
 /// Transaction checking.
-extension BitcoinTransaction {
+extension BitcoinTx {
 
     // MARK: - Computed Properties
 
@@ -15,29 +15,29 @@ extension BitcoinTransaction {
     public func check() throws {
         // Basic checks that don't depend on any context
         guard !inputs.isEmpty else {
-            throw TransactionError.noInputs
+            throw TxError.noInputs
         }
         guard !outputs.isEmpty else {
-            throw TransactionError.noOutputs
+            throw TxError.noOutputs
         }
 
         // Size limits (this doesn't take the witness into account, as that hasn't been checked for malleability)
         guard weight <= Self.maxBlockWeight else {
-            throw TransactionError.oversized
+            throw TxError.oversized
         }
 
         // Check for negative or overflow output values (see CVE-2010-5139)
         var valueOut: BitcoinAmount = 0
         for output in outputs {
             guard output.value >= 0 else {
-                throw TransactionError.negativeOutput
+                throw TxError.negativeOutput
             }
             guard output.value <= Self.maxMoney else {
-                throw TransactionError.outputTooLarge
+                throw TxError.outputTooLarge
             }
             valueOut += output.value
             guard valueOut >= 0 && valueOut <= Self.maxMoney else {
-                throw TransactionError.totalOutputsTooLarge
+                throw TxError.totalOutputsTooLarge
             }
         }
 
@@ -46,33 +46,33 @@ extension BitcoinTransaction {
         // of a tx as spent, it does not check if the tx has duplicate inputs.
         // Failure to run this check will result in either a crash or an inflation bug, depending on the implementation of
         // the underlying coins database.
-        var outpoints = Set<TransactionOutpoint>()
+        var outpoints = Set<TxOutpoint>()
         for input in inputs {
             outpoints.insert(input.outpoint)
         }
         guard inputs.count == outpoints.count else {
-            throw TransactionError.duplicateInput
+            throw TxError.duplicateInput
         }
 
         if isCoinbase && (inputs[0].script.size < 2 || inputs[0].script.size > 100) {
-            throw TransactionError.coinbaseLengthOutOfRange
+            throw TxError.coinbaseLengthOutOfRange
         }
         if !isCoinbase {
             for input in inputs {
-                if input.outpoint == TransactionOutpoint.coinbase {
-                    throw TransactionError.missingOutpoint
+                if input.outpoint == TxOutpoint.coinbase {
+                    throw TxError.missingOutpoint
                 }
             }
         }
     }
 
     /// This function is called when validating a transaction and it's consensus critical. Needs to be called after ``check()``
-    public func checkInputs(coins: [TransactionOutpoint : UnspentOutput], spendHeight: Int) throws {
+    public func checkInputs(coins: [TxOutpoint : UnspentOut], spendHeight: Int) throws {
         // are the actual inputs available?
         if !isCoinbase {
             for outpoint in inputs.map(\.outpoint) {
                 guard coins[outpoint] != .none else {
-                    throw TransactionError.inputMissingOrSpent
+                    throw TxError.inputMissingOrSpent
                 }
             }
         }
@@ -84,26 +84,26 @@ extension BitcoinTransaction {
                 preconditionFailure()
             }
             if coin.isCoinbase && spendHeight - coin.height < Self.coinbaseMaturity {
-                throw TransactionError.prematureCoinbaseSpend
+                throw TxError.prematureCoinbaseSpend
             }
             valueIn += coin.output.value
             guard coin.output.value >= 0 && coin.output.value <= Self.maxMoney,
                   valueIn >= 0 && valueIn <= Self.maxMoney
             else {
-                throw TransactionError.inputValuesOutOfRange
+                throw TxError.inputValuesOutOfRange
             }
         }
 
-        // This is guaranteed by calling Transaction.check() before this function.
+        // This is guaranteed by calling Tx.check() before this function.
         precondition(valueOut >= 0 && valueOut <= Self.maxMoney)
 
         guard valueIn >= valueOut else {
-            throw TransactionError.inputsValueBelowOutput
+            throw TxError.inputsValueBelowOutput
         }
 
         let fee = valueIn - valueOut
         guard fee >= 0 && fee <= Self.maxMoney else {
-            throw TransactionError.feeOutOfRange
+            throw TxError.feeOutOfRange
         }
     }
 
@@ -129,7 +129,7 @@ extension BitcoinTransaction {
     }
 
     /// BIP68 - Untested - Entrypoint 1.
-    public func checkSequenceLocks(verifyLockTimeSequence: Bool, coins: [TransactionOutpoint : UnspentOutput], chainTip: Int, previousBlockMedianTimePast: Int) throws {
+    public func checkSequenceLocks(verifyLockTimeSequence: Bool, coins: [TxOutpoint : UnspentOut], chainTip: Int, previousBlockMedianTimePast: Int) throws {
         // CheckSequenceLocks() uses chainActive.Height()+1 to evaluate
         // height based locks because when SequenceLocks() is called within
         // ConnectBlock(), the height of the block *being*
@@ -223,10 +223,10 @@ extension BitcoinTransaction {
         return (minHeight, minTime)
     }
 
-    /// BIP68 - Untested. Called by ``Transaction.checkSequenceLocks()`` and ``Transaction.sequenceLocks()``.
+    /// BIP68 - Untested. Called by ``BitcoinTx.checkSequenceLocks()`` and ``BitcoinTx.sequenceLocks()``.
     func evaluateSequenceLocks(blockHeight: Int, previousBlockMedianTimePast: Int, lockPair: (Int, Int)) throws {
         if lockPair.0 >= blockHeight || lockPair.1 >= previousBlockMedianTimePast {
-            throw TransactionError.futureLockTime
+            throw TxError.futureLockTime
         }
     }
 }

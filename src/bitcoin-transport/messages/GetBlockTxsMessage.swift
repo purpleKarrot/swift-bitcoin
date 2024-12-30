@@ -4,11 +4,11 @@ import Foundation
 ///
 /// The `getblocktxn` message is defined as a message containing a serialized `BlockTransactionsRequest` message and `pchCommand == "getblocktxn"`.
 ///
-public struct GetBlockTransactionsMessage: Equatable {
+public struct GetBlockTxsMessage: Equatable {
 
-    public init(blockHash: Data, transactionIndices: [Int]) {
+    public init(blockHash: Data, txIndices: [Int]) {
         self.blockHash = blockHash
-        self.transactionIndices = transactionIndices
+        self.txIndices = txIndices
     }
 
     /// The blockhash of the block which the transactions being requested are in.
@@ -23,10 +23,10 @@ public struct GetBlockTransactionsMessage: Equatable {
     ///
     /// `indexes_length`: The number of transactions being requested. `CompactSize` (1 or 3 bytes). As used to encode array lengths elsewhere.
     ///
-    public let transactionIndices: [Int]
+    public let txIndices: [Int]
 }
 
-extension GetBlockTransactionsMessage {
+extension GetBlockTxsMessage {
 
     public init?(_ data: Data) {
         var data = data
@@ -36,28 +36,28 @@ extension GetBlockTransactionsMessage {
         self.blockHash = Data(blockHash)
         data = data.dropFirst(blockHash.count)
 
-        guard let transactionCount = data.varInt else { return nil }
-        data = data.dropFirst(transactionCount.varIntSize)
+        guard let txCount = data.varInt else { return nil }
+        data = data.dropFirst(txCount.varIntSize)
 
-        var transactionIndices = [Int]()
+        var txIndices = [Int]()
         var previousIndex = -1
-        for _ in 0 ..< transactionCount {
+        for _ in 0 ..< txCount {
             guard let indexDiff = data.varInt else { return nil }
             let index = Int(indexDiff) + previousIndex + 1
-            transactionIndices.append(index)
+            txIndices.append(index)
             data = data.dropFirst(indexDiff.varIntSize)
             previousIndex = index
         }
-        self.transactionIndices = transactionIndices
+        self.txIndices = txIndices
     }
 
     var data: Data {
         var ret = Data(count: size)
         var offset = ret.addData(blockHash)
-        offset = ret.addData(Data(varInt: UInt64(transactionIndices.count)), at: offset)
+        offset = ret.addData(Data(varInt: UInt64(txIndices.count)), at: offset)
 
         var previousIndex = Int?.none
-        for index in transactionIndices {
+        for index in txIndices {
             let indexDiff = if let previousIndex {
                 index - previousIndex - 1
             } else {
@@ -70,6 +70,6 @@ extension GetBlockTransactionsMessage {
     }
 
     var size: Int {
-        32 + UInt64(transactionIndices.count).varIntSize + transactionIndices.reduce(0) { $0 + UInt64($1).varIntSize }
+        32 + UInt64(txIndices.count).varIntSize + txIndices.reduce(0) { $0 + UInt64($1).varIntSize }
     }
 }

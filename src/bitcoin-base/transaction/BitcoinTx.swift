@@ -10,7 +10,7 @@ import BitcoinCrypto
 /// A lock time can also be specified for a transaction which prevents it from being processed until a given block or time has passed.
 ///
 /// Version 2 transactions allows for relative lock times based on age of spent outputs.
-public struct BitcoinTransaction: Equatable, Sendable {
+public struct BitcoinTx: Equatable, Sendable {
 
     // MARK: - Initializers
     
@@ -20,7 +20,7 @@ public struct BitcoinTransaction: Equatable, Sendable {
     ///   - locktime: The absolute lock time by which this transaction will be able to be mined. It can be specified as a block height or a calendar date. Disabled by default.
     ///   - inputs: The coins this transaction will be spending.
     ///   - outputs: The new coins this transaction will create.
-    public init(version: TransactionVersion = .v1, locktime: TransactionLocktime = .disabled, inputs: [TransactionInput], outputs: [TransactionOutput]) {
+    public init(version: TxVersion = .v1, locktime: TxLocktime = .disabled, inputs: [TxIn], outputs: [TxOut]) {
         self.version = version
         self.locktime = locktime
         self.inputs = inputs
@@ -30,16 +30,16 @@ public struct BitcoinTransaction: Equatable, Sendable {
     // MARK: - Instance Properties
 
     /// The transaction's version.
-    public var version: TransactionVersion
+    public var version: TxVersion
 
     /// Lock time value applied to this transaction. It represents the earliest time at which this transaction should be considered valid.
-    public var locktime: TransactionLocktime
+    public var locktime: TxLocktime
 
     /// All of the inputs consumed (coins spent) by this transaction.
-    public var inputs: [TransactionInput]
+    public var inputs: [TxIn]
 
     /// The new outputs to be created by this transaction.
-    public var outputs: [TransactionOutput]
+    public var outputs: [TxOut]
 
     // MARK: - Computed Properties
 
@@ -57,7 +57,7 @@ public struct BitcoinTransaction: Equatable, Sendable {
     public var virtualSize: Int { Int((Double(weight) / 4).rounded(.up)) }
 
     public var isCoinbase: Bool {
-        inputs.count == 1 && inputs[0].outpoint == TransactionOutpoint.coinbase
+        inputs.count == 1 && inputs[0].outpoint == TxOutpoint.coinbase
     }
 
     /// BIP141
@@ -65,10 +65,10 @@ public struct BitcoinTransaction: Equatable, Sendable {
 
     // MARK: - Instance Methods
 
-    /// Creates an outpoint from a particular output in this transaction to be used when creating an ``TransactionInput`` instance.
-    public func outpoint(_ outputIndex: Int) -> TransactionOutpoint {
+    /// Creates an outpoint from a particular output in this transaction to be used when creating an ``TxIn`` instance.
+    public func outpoint(_ outputIndex: Int) -> TxOutpoint {
         precondition(outputIndex < outputs.count)
-        return .init(transaction: id, output: outputIndex)
+        return .init(tx: id, output: outputIndex)
     }
 
     // MARK: - Type Properties
@@ -83,11 +83,11 @@ public struct BitcoinTransaction: Equatable, Sendable {
 
     // MARK: - Type Methods
 
-    public static func makeGenesisTransaction(blockSubsidy: Int) -> Self {
+    public static func makeGenesisTx(blockSubsidy: Int) -> Self {
 
         let genesisMessage = "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks"
 
-        let genesisTx = BitcoinTransaction(
+        let genesisTx = BitcoinTx(
             version: .v1,
             inputs: [.init(
                 outpoint: .coinbase,
@@ -107,11 +107,11 @@ public struct BitcoinTransaction: Equatable, Sendable {
         return genesisTx
     }
 
-    public static func makeCoinbaseTransaction(blockHeight: Int, publicKey: PublicKey, witnessMerkleRoot: Data, blockSubsidy: Int) -> Self {
-        makeCoinbaseTransaction(blockHeight: blockHeight, publicKeyHash: Data(Hash160.hash(data: publicKey.data)), witnessMerkleRoot: witnessMerkleRoot, blockSubsidy: blockSubsidy)
+    public static func makeCoinbaseTx(blockHeight: Int, publicKey: PublicKey, witnessMerkleRoot: Data, blockSubsidy: Int) -> Self {
+        makeCoinbaseTx(blockHeight: blockHeight, publicKeyHash: Data(Hash160.hash(data: publicKey.data)), witnessMerkleRoot: witnessMerkleRoot, blockSubsidy: blockSubsidy)
     }
 
-    public static func makeCoinbaseTransaction(blockHeight: Int, publicKeyHash: Data, witnessMerkleRoot: Data, blockSubsidy: Int) -> Self {
+    public static func makeCoinbaseTx(blockHeight: Int, publicKeyHash: Data, witnessMerkleRoot: Data, blockSubsidy: Int) -> Self {
         // BIP141 Commitment Structure https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki#commitment-structure
         let witnessReservedValue = Data(count: 32)
 
@@ -124,7 +124,7 @@ public struct BitcoinTransaction: Equatable, Sendable {
             .pushBytes(witnessCommitmentHeader + witnessCommitmentHash),
         ])
 
-        let coinbaseTx = BitcoinTransaction(version: .v2, inputs: [
+        let coinbaseTx = BitcoinTx(version: .v2, inputs: [
             .init(outpoint: .coinbase, script: .init([.encodeMinimally(blockHeight), .zero]), witness: .init([witnessReservedValue]))
         ], outputs: [
             .init(value: blockSubsidy, script: .init([
@@ -143,7 +143,7 @@ public struct BitcoinTransaction: Equatable, Sendable {
     public static let dummy = Self(inputs: [.init(outpoint: .coinbase)], outputs: [])
 }
 
-extension BitcoinTransaction {
+extension BitcoinTx {
 
     // MARK: - Initializers
 
@@ -151,16 +151,16 @@ extension BitcoinTransaction {
     /// BIP 144
     public init?(_ data: Data) {
         var data = data
-        guard let version = TransactionVersion(data) else {
+        guard let version = TxVersion(data) else {
             return nil
         }
-        data = data.dropFirst(TransactionVersion.size)
+        data = data.dropFirst(TxVersion.size)
 
         // BIP144 - Check for marker and segwit flag
         let maybeSegwitMarker = data[data.startIndex]
         let maybeSegwitFlag = data[data.startIndex + 1]
         let isSegwit: Bool
-        if maybeSegwitMarker == BitcoinTransaction.segwitMarker && maybeSegwitFlag == BitcoinTransaction.segwitFlag {
+        if maybeSegwitMarker == BitcoinTx.segwitMarker && maybeSegwitFlag == BitcoinTx.segwitFlag {
             isSegwit = true
             data = data.dropFirst(2)
         } else {
@@ -172,9 +172,9 @@ extension BitcoinTransaction {
         }
         data = data.dropFirst(inputsCount.varIntSize)
 
-        var inputs = [TransactionInput]()
+        var inputs = [TxIn]()
         for _ in 0 ..< inputsCount {
-            guard let input = TransactionInput(data) else {
+            guard let input = TxIn(data) else {
                 return nil
             }
             inputs.append(input)
@@ -186,9 +186,9 @@ extension BitcoinTransaction {
         }
         data = data.dropFirst(outputsCount.varIntSize)
 
-        var outputs = [TransactionOutput]()
+        var outputs = [TxOut]()
         for _ in 0 ..< outputsCount {
-            guard let out = TransactionOutput(data) else {
+            guard let out = TxOut(data) else {
                 return nil
             }
             outputs.append(out)
@@ -205,10 +205,10 @@ extension BitcoinTransaction {
             }
         }
 
-        guard let locktime = TransactionLocktime(data) else {
+        guard let locktime = TxLocktime(data) else {
             return nil
         }
-        data = data.dropFirst(TransactionLocktime.size)
+        data = data.dropFirst(TxLocktime.size)
         self.init(version: version, locktime: locktime, inputs: inputs, outputs: outputs)
     }
 
@@ -222,7 +222,7 @@ extension BitcoinTransaction {
 
         // BIP144
         if hasWitness {
-            offset = ret.addData(Data([BitcoinTransaction.segwitMarker, BitcoinTransaction.segwitFlag]), at: offset)
+            offset = ret.addData(Data([BitcoinTx.segwitMarker, BitcoinTx.segwitFlag]), at: offset)
         }
         offset = ret.addData(Data(varInt: inputsUInt64), at: offset)
         offset = ret.addData(inputs.reduce(Data()) { $0 + $1.data }, at: offset)
@@ -263,12 +263,12 @@ extension BitcoinTransaction {
     /// BIP141: Base transaction size is the size of the transaction serialised with the witness data stripped.
     /// AKA `identifierSize`
     var baseSize: Int {
-        TransactionVersion.size + inputsUInt64.varIntSize + inputs.reduce(0) { $0 + $1.size } + outputsUInt64.varIntSize + outputs.reduce(0) { $0 + $1.size } + TransactionLocktime.size
+        TxVersion.size + inputsUInt64.varIntSize + inputs.reduce(0) { $0 + $1.size } + outputsUInt64.varIntSize + outputs.reduce(0) { $0 + $1.size } + TxLocktime.size
     }
 
     /// BIP141 / BIP144
     var witnessSize: Int {
-        hasWitness ? (MemoryLayout.size(ofValue: BitcoinTransaction.segwitMarker) + MemoryLayout.size(ofValue: BitcoinTransaction.segwitFlag)) + inputs.reduce(0) { $0 + ($1.witness?.size ?? 0) } : 0
+        hasWitness ? (MemoryLayout.size(ofValue: BitcoinTx.segwitMarker) + MemoryLayout.size(ofValue: BitcoinTx.segwitFlag)) + inputs.reduce(0) { $0 + ($1.witness?.size ?? 0) } : 0
     }
 
     public static let idLength = Hash256.Digest.byteCount

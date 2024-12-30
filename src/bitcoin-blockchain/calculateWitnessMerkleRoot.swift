@@ -2,8 +2,8 @@ import Foundation
 import BitcoinCrypto
 import BitcoinBase
 
-func calculateWitnessMerkleRoot(_ transactions: [BitcoinTransaction]) -> Data {
+func calculateWitnessMerkleRoot(_ txs: [BitcoinTx]) -> Data {
     calculateMerkleRoot(
-        [BitcoinTransaction.coinbaseWitnessID] +
-        transactions.map(\.witnessID))
+        [BitcoinTx.coinbaseWitnessID] +
+        txs.map(\.witnessID))
 }

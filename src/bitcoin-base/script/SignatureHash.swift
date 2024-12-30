@@ -1,13 +1,13 @@
 import Foundation
 import BitcoinCrypto
 
-/// A hash function which takes a transaction along with some context and produces a hash value for use with signature operations. The function only accepts a signature hash type which allows for commitments to different parts of the transaction.
+/// A hash function which takes a transaction along with some context and produces a hash value for use with signature operations. The function only accepts a signature hash type which allows for commitments to different parts of the tx.
 public class SignatureHash {
 
-    public init(transaction: BitcoinTransaction, input inputIndex: Int, sigVersion: SigVersion = .base, prevout: TransactionOutput, scriptCode: Data? = .none, tapscriptExtension: TapscriptExtension? = .none, sighashType: SighashType = .all) {
-        precondition(inputIndex < transaction.inputs.count)
-        precondition(transaction.inputs.count == 1 || sigVersion == .base || sigVersion == .witnessV0)
-        self.transaction = transaction
+    public init(tx: BitcoinTx, input inputIndex: Int, sigVersion: SigVersion = .base, prevout: TxOut, scriptCode: Data? = .none, tapscriptExtension: TapscriptExtension? = .none, sighashType: SighashType = .all) {
+        precondition(inputIndex < tx.inputs.count)
+        precondition(tx.inputs.count == 1 || sigVersion == .base || sigVersion == .witnessV0)
+        self.tx = tx
         self.inputIndex = inputIndex
         self.sigVersion = sigVersion
         self.prevouts = [prevout]
@@ -16,10 +16,10 @@ public class SignatureHash {
         self.sighashType = sighashType
     }
 
-    public init(transaction: BitcoinTransaction, input inputIndex: Int = 0, sigVersion: SigVersion = .base, prevouts: [TransactionOutput], scriptCode: Data? = .none, tapscriptExtension: TapscriptExtension? = .none, sighashType: SighashType? = Optional.none) {
-        precondition(inputIndex < transaction.inputs.count)
-        precondition(prevouts.count == transaction.inputs.count || (prevouts.count == 1 && (sigVersion == .base || sigVersion == .witnessV0)))
-        self.transaction = transaction
+    public init(tx: BitcoinTx, input inputIndex: Int = 0, sigVersion: SigVersion = .base, prevouts: [TxOut], scriptCode: Data? = .none, tapscriptExtension: TapscriptExtension? = .none, sighashType: SighashType? = Optional.none) {
+        precondition(inputIndex < tx.inputs.count)
+        precondition(prevouts.count == tx.inputs.count || (prevouts.count == 1 && (sigVersion == .base || sigVersion == .witnessV0)))
+        self.tx = tx
         self.inputIndex = inputIndex
         self.sigVersion = sigVersion
         self.prevouts = prevouts
@@ -28,19 +28,19 @@ public class SignatureHash {
         self.sighashType = sighashType
     }
 
-    public let transaction: BitcoinTransaction
+    public let tx: BitcoinTx
     public private(set) var inputIndex: Int
     public private(set) var sigVersion: SigVersion
-    public private(set) var prevouts: [TransactionOutput]
+    public private(set) var prevouts: [TxOut]
     public private(set) var scriptCode: Data?
     public private(set) var tapscriptExtension: TapscriptExtension?
     public var sighashType: SighashType?
 
-    public var prevout: TransactionOutput {
+    public var prevout: TxOut {
         if prevouts.count == 1 { prevouts[0] } else { prevouts[inputIndex] }
     }
 
-    public func set(input inputIndex: Int, sigVersion: SigVersion? = .none, prevout: TransactionOutput) {
+    public func set(input inputIndex: Int, sigVersion: SigVersion? = .none, prevout: TxOut) {
         if inputIndex != self.inputIndex {
             scriptCode = .none
             tapscriptExtension = .none
@@ -50,17 +50,17 @@ public class SignatureHash {
         if let sigVersion {
             self.sigVersion = sigVersion
         }
-        precondition(inputIndex < transaction.inputs.count)
-        precondition(transaction.inputs.count == 1 || self.sigVersion == .base || self.sigVersion == .witnessV0)
+        precondition(inputIndex < tx.inputs.count)
+        precondition(tx.inputs.count == 1 || self.sigVersion == .base || self.sigVersion == .witnessV0)
     }
 
-    public func set(input: Int, sigVersion: SigVersion? = .none, prevouts: [TransactionOutput]? = .none, scriptCode: Data? = .none, tapscriptExtension: TapscriptExtension? = .none, sighashType: SighashType?) {
+    public func set(input: Int, sigVersion: SigVersion? = .none, prevouts: [TxOut]? = .none, scriptCode: Data? = .none, tapscriptExtension: TapscriptExtension? = .none, sighashType: SighashType?) {
         set(input: input, sigVersion: sigVersion, prevouts: prevouts, scriptCode: scriptCode, tapscriptExtension: tapscriptExtension)
         self.sighashType = sighashType
         precondition(sigVersion == .witnessV1 || sighashType != Optional.none)
     }
 
-    public func set(input inputIndex: Int, sigVersion: SigVersion? = .none, prevouts newPrevouts: [TransactionOutput]? = .none, scriptCode: Data? = .none, tapscriptExtension: TapscriptExtension? = .none) {
+    public func set(input inputIndex: Int, sigVersion: SigVersion? = .none, prevouts newPrevouts: [TxOut]? = .none, scriptCode: Data? = .none, tapscriptExtension: TapscriptExtension? = .none) {
         self.scriptCode = scriptCode
         self.tapscriptExtension = tapscriptExtension
         self.inputIndex = inputIndex
@@ -70,8 +70,8 @@ public class SignatureHash {
         if let sigVersion {
             self.sigVersion = sigVersion
         }
-        precondition(inputIndex < transaction.inputs.count)
-        precondition(prevouts.count == transaction.inputs.count || (prevouts.count == 1 && (self.sigVersion == .base || self.sigVersion == .witnessV0)))
+        precondition(inputIndex < tx.inputs.count)
+        precondition(prevouts.count == tx.inputs.count || (prevouts.count == 1 && (self.sigVersion == .base || self.sigVersion == .witnessV0)))
 
     }
 
@@ -97,7 +97,7 @@ public class SignatureHash {
     private var signatureHash: Data {
         guard let sighashType else { preconditionFailure() }
 
-        if sighashType.isSingle && inputIndex >= transaction.outputs.count {
+        if sighashType.isSingle && inputIndex >= tx.outputs.count {
             // Note: The transaction that uses SIGHASH_SINGLE type of signature should not have more inputs than outputs. However if it does (because of the pre-existing implementation), it shall not be rejected, but instead for every "illegal" input (meaning: an input that has an index bigger than the maximum output index) the node should still verify it, though assuming the hash of 0000000000000000000000000000000000000000000000000000000000000001
             //
             // From [https://en.bitcoin.it/wiki/BIP_0143]:
@@ -113,14 +113,14 @@ public class SignatureHash {
 
         let scriptCode = scriptCode ?? prevout.script.data
 
-        var newIns = [TransactionInput]()
+        var newIns = [TxIn]()
         if sighashType.isAnyCanPay {
             // Procedure for Hashtype SIGHASH_ANYONECANPAY
             // The txCopy input vector is resized to a length of one.
             // The current transaction input (with scriptPubKey modified to subScript) is set as the first and only member of this vector.
-            newIns.append(.init(outpoint: transaction.inputs[inputIndex].outpoint, sequence: transaction.inputs[inputIndex].sequence, script: .init(scriptCode)))
+            newIns.append(.init(outpoint: tx.inputs[inputIndex].outpoint, sequence: tx.inputs[inputIndex].sequence, script: .init(scriptCode)))
         } else {
-            transaction.inputs.enumerated().forEach { i, input in
+            tx.inputs.enumerated().forEach { i, input in
                 newIns.append(.init(
                     outpoint: input.outpoint,
                     // SIGHASH_NONE | SIGHASH_SINGLE - All other txCopy inputs aside from the current input are set to have an nSequence index of zero.
@@ -131,7 +131,7 @@ public class SignatureHash {
                 ))
             }
         }
-        var newOuts: [TransactionOutput]
+        var newOuts: [TxOut]
         // Procedure for Hashtype SIGHASH_SINGLE
 
         if sighashType.isSingle {
@@ -139,7 +139,7 @@ public class SignatureHash {
             // All other txCopy outputs aside from the output that is the same as the current input index are set to a blank script and a value of (long) -1.
             newOuts = []
 
-            transaction.outputs.enumerated().forEach { i, out in
+            tx.outputs.enumerated().forEach { i, out in
                 guard i <= inputIndex else {
                     return
                 }
@@ -153,11 +153,11 @@ public class SignatureHash {
         } else if sighashType.isNone {
             newOuts = []
         } else {
-            newOuts = transaction.outputs
+            newOuts = tx.outputs
         }
-        let txCopy = BitcoinTransaction(
-            version: transaction.version,
-            locktime: transaction.locktime,
+        let txCopy = BitcoinTx(
+            version: tx.version,
+            locktime: tx.locktime,
             inputs: newIns,
             outputs: newOuts
         )
@@ -190,7 +190,7 @@ public class SignatureHash {
         if sighashType.isAnyCanPay {
             hashPrevouts = Data(repeating: 0, count: 32)
         } else {
-            let prevouts = transaction.inputs.reduce(Data()) { $0 + $1.outpoint.data }
+            let prevouts = tx.inputs.reduce(Data()) { $0 + $1.outpoint.data }
             hashPrevouts = Data(Hash256.hash(data: prevouts))
         }
 
@@ -198,7 +198,7 @@ public class SignatureHash {
         // Otherwise, hashSequence is a uint256 of 0x0000......0000.
         let hashSequence: Data
         if !sighashType.isAnyCanPay && !sighashType.isSingle && !sighashType.isNone {
-            let sequence = transaction.inputs.reduce(Data()) {
+            let sequence = tx.inputs.reduce(Data()) {
                 $0 + $1.sequence.data
             }
             hashSequence = Data(Hash256.hash(data: sequence))
@@ -211,21 +211,21 @@ public class SignatureHash {
         // Otherwise, hashOutputs is a uint256 of 0x0000......0000.[7]
         let hashOuts: Data
         if !sighashType.isSingle && !sighashType.isNone {
-            let outsData = transaction.outputs.reduce(Data()) { $0 + $1.data }
+            let outsData = tx.outputs.reduce(Data()) { $0 + $1.data }
             hashOuts = Data(Hash256.hash(data: outsData))
-        } else if sighashType.isSingle && inputIndex < transaction.outputs.count {
-            hashOuts = Data(Hash256.hash(data: transaction.outputs[inputIndex].data))
+        } else if sighashType.isSingle && inputIndex < tx.outputs.count {
+            hashOuts = Data(Hash256.hash(data: tx.outputs[inputIndex].data))
         } else {
             hashOuts = Data(repeating: 0, count: 32)
         }
 
-        let outpointData = transaction.inputs[inputIndex].outpoint.data
+        let outpointData = tx.inputs[inputIndex].outpoint.data
         let scriptCodeData = resolvedScriptCode.varLenData
         let amountData = withUnsafeBytes(of: amount) { Data($0) }
-        let sequenceData = transaction.inputs[inputIndex].sequence.data
+        let sequenceData = tx.inputs[inputIndex].sequence.data
 
-        let remaindingData = sequenceData + hashOuts + transaction.locktime.data + sighashType.data32
-        return transaction.version.data + hashPrevouts + hashSequence + outpointData + scriptCodeData + amountData + remaindingData
+        let remaindingData = sequenceData + hashOuts + tx.locktime.data + sighashType.data32
+        return tx.version.data + hashPrevouts + hashSequence + outpointData + scriptCodeData + amountData + remaindingData
     }
 
     /// BIP341
@@ -249,7 +249,7 @@ public class SignatureHash {
         sighashCache.resetHits()
 
         // (the original witness stack has two or more witness elements, and the first byte of the last element is 0x50)
-        let annex = transaction.inputs[inputIndex].witness?.taprootAnnex
+        let annex = tx.inputs[inputIndex].witness?.taprootAnnex
 
         // Epoch:
         // epoch (0).
@@ -261,13 +261,13 @@ public class SignatureHash {
 
         let sighashType = sighashType ?? .all
 
-        precondition(!sighashType.isSingle || inputIndex < transaction.outputs.count, "For single hash type, the selected input needs to have a matching output.")
+        precondition(!sighashType.isSingle || inputIndex < tx.outputs.count, "For single hash type, the selected input needs to have a matching output.")
 
         // Transaction data:
-        // nVersion (4): the nVersion of the transaction.
-        var txData = transaction.version.data
-        // nLockTime (4): the nLockTime of the transaction.
-        txData.append(transaction.locktime.data)
+        // nVersion (4): the nVersion of the tx.
+        var txData = tx.version.data
+        // nLockTime (4): the nLockTime of the tx.
+        txData.append(tx.locktime.data)
 
         //If the hash_type & 0x80 does not equal SIGHASH_ANYONECANPAY:
         if !sighashType.isAnyCanPay {
@@ -277,7 +277,7 @@ public class SignatureHash {
                 shaPrevouts = cached
                 sighashCache.shaPrevoutsHit = true
             } else {
-                let prevouts = transaction.inputs.reduce(Data()) { $0 + $1.outpoint.data }
+                let prevouts = tx.inputs.reduce(Data()) { $0 + $1.outpoint.data }
                 shaPrevouts = Data(SHA256.hash(data: prevouts))
                 sighashCache.shaPrevouts = shaPrevouts
             }
@@ -313,7 +313,7 @@ public class SignatureHash {
                 shaSequences = cached
                 sighashCache.shaSequencesHit = true
             } else {
-                let sequences = transaction.inputs.reduce(Data()) { $0 + $1.sequence.data }
+                let sequences = tx.inputs.reduce(Data()) { $0 + $1.sequence.data }
                 shaSequences = Data(SHA256.hash(data: sequences))
                 sighashCache.shaSequences = shaSequences
             }
@@ -328,7 +328,7 @@ public class SignatureHash {
                 shaOuts = cached
                 sighashCache.shaOutsHit = true
             } else {
-                let outsData = transaction.outputs.reduce(Data()) { $0 + $1.data }
+                let outsData = tx.outputs.reduce(Data()) { $0 + $1.data }
                 shaOuts = Data(SHA256.hash(data: outsData))
                 sighashCache.shaOuts = shaOuts
             }
@@ -344,7 +344,7 @@ public class SignatureHash {
         // If hash_type & 0x80 equals SIGHASH_ANYONECANPAY:
         if sighashType.isAnyCanPay {
             // outpoint (36): the COutPoint of this input (32-byte hash + 4-byte little-endian).
-            let outpoint = transaction.inputs[inputIndex].outpoint.data
+            let outpoint = tx.inputs[inputIndex].outpoint.data
             inputData.append(outpoint)
             // amount (8): value of the previous output spent by this input.
             let amount = prevouts[inputIndex].valueData
@@ -353,7 +353,7 @@ public class SignatureHash {
             let scriptPubKey = prevouts[inputIndex].script.prefixedData
             inputData.append(scriptPubKey)
             // nSequence (4): nSequence of this input.
-            let sequence = transaction.inputs[inputIndex].sequence.data
+            let sequence = tx.inputs[inputIndex].sequence.data
             inputData.append(sequence)
         } else { // If hash_type & 0x80 does not equal SIGHASH_ANYONECANPAY:
             // input_index (4): index of this input in the transaction input vector. Index of the first input is 0.
@@ -373,7 +373,7 @@ public class SignatureHash {
         var outputData = Data()
         if sighashType.isSingle {
             //sha_single_output (32): the SHA256 of the corresponding output in CTxOut format.
-            let shaSingleOutput = Data(SHA256.hash(data: transaction.outputs[inputIndex].data))
+            let shaSingleOutput = Data(SHA256.hash(data: tx.outputs[inputIndex].data))
             outputData.append(shaSingleOutput)
         }
 

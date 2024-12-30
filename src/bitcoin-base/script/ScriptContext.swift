@@ -5,24 +5,24 @@ import Foundation
 /// Use a single `ScriptContext` instance to run multiple scripts sequentially.
 public struct ScriptContext {
 
-    init?(_ config: ScriptConfig = .standard, transaction: BitcoinTransaction, inputIndex: Int = 0, prevout: TransactionOutput) {
-        guard transaction.inputs.count > 0, inputIndex < transaction.inputs.count else {
+    init?(_ config: ScriptConfig = .standard, tx: BitcoinTx, inputIndex: Int = 0, prevout: TxOut) {
+        guard tx.inputs.count > 0, inputIndex < tx.inputs.count else {
             return nil
         }
-        self.init(config, transaction: transaction, inputIndex: inputIndex, prevouts: [prevout])
+        self.init(config, tx: tx, inputIndex: inputIndex, prevouts: [prevout])
     }
 
-    public init(_ config: ScriptConfig = .standard, transaction: BitcoinTransaction = .dummy, inputIndex: Int = 0, prevouts: [TransactionOutput] = []) {
+    public init(_ config: ScriptConfig = .standard, tx: BitcoinTx = .dummy, inputIndex: Int = 0, prevouts: [TxOut] = []) {
         self.config = config
-        self.transaction = transaction
+        self.tx = tx
         self.inputIndex = inputIndex
         self.prevouts = prevouts
         self.sigVersion = .base
     }
 
     public let config: ScriptConfig
-    public let transaction: BitcoinTransaction
-    public let prevouts: [TransactionOutput]
+    public let tx: BitcoinTx
+    public let prevouts: [TxOut]
     public private(set) var sigVersion: SigVersion
 
     // Internal state
@@ -64,7 +64,7 @@ public struct ScriptContext {
     /// We keep the sighash cache instance inbetween resets / runs / input index updates.
     var sighashCache = SighashCache()
 
-    var prevout: TransactionOutput {
+    var prevout: TxOut {
         prevouts[inputIndex]
     }
 
@@ -109,7 +109,7 @@ public struct ScriptContext {
         self.tapLeafHash = tapLeafHash
 
         if sigVersion == .witnessV1 {
-            if let witness = transaction.inputs[inputIndex].witness {
+            if let witness = tx.inputs[inputIndex].witness {
                 sigopBudget = BitcoinScript.sigopBudgetBase + witness.size
             } else {
                 sigopBudget = BitcoinScript.sigopBudgetBase
@@ -167,7 +167,7 @@ public struct ScriptContext {
 
     /// Except stack, cache and input index
     private mutating func reset() {
-        let copy = ScriptContext(config, transaction: transaction, prevouts: prevouts)
+        let copy = ScriptContext(config, tx: tx, prevouts: prevouts)
         programCounter = copy.programCounter
         operationIndex = copy.operationIndex
         nonPushOperations = copy.nonPushOperations

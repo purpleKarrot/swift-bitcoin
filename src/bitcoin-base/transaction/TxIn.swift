@@ -1,7 +1,7 @@
 import Foundation
 
-/// A single input belonging to a ``BitcoinTransaction``.
-public struct TransactionInput: Equatable, Sendable {
+/// A single input belonging to a ``BitcoinTx``.
+public struct TxIn: Equatable, Sendable {
 
     // MARK: - Initializers
 
@@ -11,7 +11,7 @@ public struct TransactionInput: Equatable, Sendable {
     ///   - sequence: This input's sequence number.
     ///   - script: Optional script to unlock the referenced output.
     ///   - witness: Optional witness data for this input. See BIP141 for more information.
-    public init(outpoint: TransactionOutpoint, sequence: InputSequence = .final, script: BitcoinScript = .empty, /* BIP141 */ witness: InputWitness? = .none) {
+    public init(outpoint: TxOutpoint, sequence: InputSequence = .final, script: BitcoinScript = .empty, /* BIP141 */ witness: InputWitness? = .none) {
         self.outpoint = outpoint
         self.sequence = sequence
         self.script = script
@@ -23,7 +23,7 @@ public struct TransactionInput: Equatable, Sendable {
     // MARK: - Instance Properties
 
     /// A reference to a previously unspent output of a prior transaction.
-    public var outpoint: TransactionOutpoint
+    public var outpoint: TxOutpoint
 
     /// The sequence number for this input.
     public var sequence: InputSequence
@@ -36,12 +36,12 @@ public struct TransactionInput: Equatable, Sendable {
 }
 
 /// Data extensions.
-extension TransactionInput {
+extension TxIn {
 
     init?(_ data: Data) {
         var data = data
-        guard let outpoint = TransactionOutpoint(data) else { return nil }
-        data = data.dropFirst(TransactionOutpoint.size)
+        guard let outpoint = TxOutpoint(data) else { return nil }
+        data = data.dropFirst(TxOutpoint.size)
 
         guard let script = BitcoinScript(prefixedData: data) else { return nil }
         data = data.dropFirst(script.prefixedSize)
@@ -53,7 +53,7 @@ extension TransactionInput {
 
     // MARK: - Instance Properties
 
-    /// Used by ``BitcoinTransaction/data``.
+    /// Used by ``BitcoinTx/data``.
     var data: Data {
         var ret = Data(count: size)
         var offset = ret.addData(outpoint.data)
@@ -62,8 +62,8 @@ extension TransactionInput {
         return ret
     }
 
-    /// Used by ``BitcoinTransaction/size``.
+    /// Used by ``BitcoinTx/size``.
     var size: Int {
-        TransactionOutpoint.size + script.prefixedSize + InputSequence.size
+        TxOutpoint.size + script.prefixedSize + InputSequence.size
     }
 }

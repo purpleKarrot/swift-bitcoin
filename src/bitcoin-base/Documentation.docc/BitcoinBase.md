@@ -14,15 +14,15 @@ _BitcoinBase_ basic usage:
 ```swift
 import BitcoinBase
 
-let previousTransaction: BitcoinTransaction = …
-let prevout = previousTransaction.outputs[0]
-let outpoint = previousTransaction.outpoint(0)
+let previousTx: BitcoinTx = …
+let prevout = previousTx.outputs[0]
+let outpoint = previousTx.outpoint(0)
 
 // Create a new transaction spending from the previous transaction's outpoint.
-let unsignedInput = TransactionInput(outpoint: outpoint)
+let unsignedInput = TxInput(outpoint: outpoint)
 
 // Specify the transaction's output. We'll leave 1000 sats on the table to tip miners. We'll re-use the origin address for simplicity.
-let unsignedTransaction = BitcoinTransaction(
+let unsignedTx = BitcoinTx(
     inputs: [unsignedInput],
     outputs: [
         .init(value: 49_99_999_000, script: .init([
@@ -35,7 +35,7 @@ let unsignedTransaction = BitcoinTransaction(
     ])
 
 // Sign the transaction by first calculating the signature hash.
-let sighash = unsignedTransaction.signatureHash(sighashType: .all, inputIndex: 0, prevout: prevout, scriptCode: prevout.script.data)
+let sighash = unsignedTx.signatureHash(sighashType: .all, inputIndex: 0, prevout: prevout, scriptCode: prevout.script.data)
 …
 ```
 
@@ -43,10 +43,10 @@ let sighash = unsignedTransaction.signatureHash(sighashType: .all, inputIndex: 0
 
 ### Essentials
 
-- ``BitcoinTransaction``
+- ``BitcoinTx``
 - ``BitcoinScript``
-- ``TransactionInput``
-- ``TransactionOutput``
+- ``TxIn``
+- ``TxOut``
 - ``SigVersion``
 - ``SighashType``
 

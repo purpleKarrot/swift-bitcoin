@@ -5,11 +5,11 @@ import BitcoinBase
 ///
 /// The `blocktxn` message is defined as a message containing a serialized `BlockTransactions` message and `pchCommand == "blocktxn"`.
 ///
-public struct BlockTransactionsMessage: Equatable {
+public struct BlockTxsMessage: Equatable {
 
-    public init(blockHash: Data, transactions: [BitcoinTransaction]) {
+    public init(blockHash: Data, txs: [BitcoinTx]) {
         self.blockHash = blockHash
-        self.transactions = transactions
+        self.txs = txs
     }
 
     /// The blockhash of the block which the transactions being provided are in.
@@ -24,10 +24,10 @@ public struct BlockTransactionsMessage: Equatable {
     ///
     /// `transactions_length`: The number of transactions provided. CompactSize.
     ///
-    public let transactions: [BitcoinTransaction]
+    public let txs: [BitcoinTx]
 }
 
-extension BlockTransactionsMessage {
+extension BlockTxsMessage {
 
     public init?(_ data: Data) {
         var data = data
@@ -37,29 +37,29 @@ extension BlockTransactionsMessage {
         self.blockHash = Data(blockHash)
         data = data.dropFirst(blockHash.count)
 
-        guard let transactionCount = data.varInt else { return nil }
-        data = data.dropFirst(transactionCount.varIntSize)
+        guard let txCount = data.varInt else { return nil }
+        data = data.dropFirst(txCount.varIntSize)
 
-        var transactions = [BitcoinTransaction]()
-        for _ in 0 ..< transactionCount {
-            guard let transaction = BitcoinTransaction(data) else { return nil }
-            transactions.append(transaction)
-            data = data.dropFirst(transaction.size)
+        var txs = [BitcoinTx]()
+        for _ in 0 ..< txCount {
+            guard let tx = BitcoinTx(data) else { return nil }
+            txs.append(tx)
+            data = data.dropFirst(tx.size)
         }
-        self.transactions = transactions
+        self.txs = txs
     }
 
     var data: Data {
         var ret = Data(count: size)
         var offset = ret.addData(blockHash)
-        offset = ret.addData(Data(varInt: UInt64(transactions.count)), at: offset)
-        for transaction in transactions {
-            offset = ret.addData(transaction.data, at: offset)
+        offset = ret.addData(Data(varInt: UInt64(txs.count)), at: offset)
+        for tx in txs {
+            offset = ret.addData(tx.data, at: offset)
         }
         return ret
     }
 
     var size: Int {
-        32 + UInt64(transactions.count).varIntSize + transactions.reduce(0) { $0 + $1.size }
+        32 + UInt64(txs.count).varIntSize + txs.reduce(0) { $0 + $1.size }
     }
 }

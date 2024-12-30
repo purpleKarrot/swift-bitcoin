@@ -5,12 +5,12 @@ private let taprootControlBaseSize = 33
 private let taprootControlNodeSize = 32
 
 /// Transaction inputs/scripts verification.
-extension BitcoinTransaction {
+extension BitcoinTx {
 
     // MARK: - Instance Methods
 
-    public func verifyScript(prevouts: [TransactionOutput], config: ScriptConfig = .standard) -> Bool {
-        var context = ScriptContext(config, transaction: self, prevouts: prevouts)
+    public func verifyScript(prevouts: [TxOut], config: ScriptConfig = .standard) -> Bool {
+        var context = ScriptContext(config, tx: self, prevouts: prevouts)
         for i in inputs.indices {
             context.inputIndex = i
             do {
@@ -29,7 +29,7 @@ extension BitcoinTransaction {
         let prevouts = context.prevouts
         let config = context.config
 
-        precondition(context.transaction == self && prevouts.count == inputs.count)
+        precondition(context.tx == self && prevouts.count == inputs.count)
 
         let scriptSig = inputs[inputIndex].script
         let scriptPubKey = prevouts[inputIndex].script
@@ -201,7 +201,7 @@ extension BitcoinTransaction {
                 fatalError()
             }
             let extendedSignature = try ExtendedSignature(schnorrData: stack[0])
-            let hasher = SignatureHash(transaction: self, input: inputIndex, prevouts: prevouts, sighashType: extendedSignature.sighashType)
+            let hasher = SignatureHash(tx: self, input: inputIndex, prevouts: prevouts, sighashType: extendedSignature.sighashType)
             let sighash = hasher.signatureHashSchnorr(sighashCache: &context.sighashCache)
             guard extendedSignature.signature.verify(hash: sighash, publicKey: publicKey) else {
                 throw ScriptError.invalidSchnorrSignature
