@@ -25,11 +25,11 @@ public struct GetTransactionCommand: Sendable {
         let outputs: [Output]
     }
 
-    public init(bitcoinService: BitcoinService) {
-        self.bitcoinService = bitcoinService
+    public init(blockchainService: BlockchainService) {
+        self.blockchainService = blockchainService
     }
 
-    let bitcoinService: BitcoinService
+    let blockchainService: BlockchainService
 
     public func run(_ request: JSONRequest) async throws -> JSONResponse {
 
@@ -41,7 +41,7 @@ public struct GetTransactionCommand: Sendable {
         guard let transactionID = Data(hex: transactionIDHex), transactionID.count == BitcoinTransaction.idLength else {
             throw RPCError(.invalidParams("transactionID"), description: "TransactionID hex encoding or length is invalid.")
         }
-        guard let transaction = await bitcoinService.getTransaction(transactionID) else {
+        guard let transaction = await blockchainService.getTransaction(transactionID) else {
             throw RPCError(.invalidParams("transactionID"), description: "Transaction not found.")
         }
         let inputs = transaction.inputs.map {

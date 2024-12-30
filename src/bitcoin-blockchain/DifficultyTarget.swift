@@ -87,6 +87,12 @@ struct DifficultyTarget: Comparable {
         a += Self(value)
     }
 
+    static func + (_ a: Self, _ value: UInt64) -> Self {
+        var a = a
+        a += value
+        return a
+    }
+
     static func += (_ a: inout Self, _ b: Self) {
         var carry = UInt64(0)
         for i in a.n.indices {
@@ -94,6 +100,20 @@ struct DifficultyTarget: Comparable {
             a.n[i] = UInt32(truncatingIfNeeded: aux & 0xffffffff)
             carry = aux >> 32
         }
+    }
+
+    static func + (_ a: Self, _ b: Self) -> Self {
+        var a = a
+        a += b
+        return a
+    }
+
+    static prefix func ~ (_ a: Self) -> Self {
+        var a = a
+        for i in a.n.indices {
+            a.n[i] = ~a.n[i]
+        }
+        return a
     }
 
     static prefix func - (_ a: Self) -> Self {
@@ -109,6 +129,12 @@ struct DifficultyTarget: Comparable {
         a += -b
     }
 
+    static func - (_ a: Self, _ b: Self) -> Self {
+        var a = a
+        a -= b
+        return a
+    }
+
     static func *= (_ a: inout Self, _ value: UInt32) {
         var carry = UInt64(0)
         for i in a.n.indices {
@@ -116,6 +142,12 @@ struct DifficultyTarget: Comparable {
             a.n[i] = UInt32(aux & 0xffffffff)
             carry = aux >> 32
         }
+    }
+
+    static func * (_ a: Self, _ value: UInt32) -> Self {
+        var a = a
+        a *= value
+        return a
     }
 
     static func /= (_ a: inout Self, _ b: Self) {
@@ -139,6 +171,12 @@ struct DifficultyTarget: Comparable {
             shift -= 1
         }
         // num now contains the remainder of the division.
+    }
+
+    static func / (_ a: Self, _ b: Self) -> Self {
+        var a = a
+        a /= b
+        return a
     }
 
     static func <<= (_ a: inout Self, _ shift: Int) {

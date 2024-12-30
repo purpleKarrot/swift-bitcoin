@@ -67,7 +67,7 @@ extension BitcoinTransaction {
     }
 
     /// This function is called when validating a transaction and it's consensus critical. Needs to be called after ``check()``
-    func checkInputs(coins: [TransactionOutpoint : UnspentOutput], spendHeight: Int) throws {
+    public func checkInputs(coins: [TransactionOutpoint : UnspentOutput], spendHeight: Int) throws {
         // are the actual inputs available?
         if !isCoinbase {
             for outpoint in inputs.map(\.outpoint) {
@@ -107,7 +107,7 @@ extension BitcoinTransaction {
         }
     }
 
-    func isFinal(blockHeight: Int?, blockTime: Int?) -> Bool {
+    public func isFinal(blockHeight: Int?, blockTime: Int?) -> Bool {
         precondition((blockHeight == .none && blockTime != .none) || (blockHeight != .none && blockTime == .none))
         if locktime == .disabled { return true }
 
@@ -129,7 +129,7 @@ extension BitcoinTransaction {
     }
 
     /// BIP68 - Untested - Entrypoint 1.
-    func checkSequenceLocks(verifyLockTimeSequence: Bool, coins: [TransactionOutpoint : UnspentOutput], chainTip: Int, previousBlockMedianTimePast: Int) throws {
+    public func checkSequenceLocks(verifyLockTimeSequence: Bool, coins: [TransactionOutpoint : UnspentOutput], chainTip: Int, previousBlockMedianTimePast: Int) throws {
         // CheckSequenceLocks() uses chainActive.Height()+1 to evaluate
         // height based locks because when SequenceLocks() is called within
         // ConnectBlock(), the height of the block *being*

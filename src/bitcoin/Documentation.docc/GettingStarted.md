@@ -39,7 +39,7 @@ Prepare the Bitcoin service.
 
 ```swift
 // Instantiate a fresh Bitcoin service (regtest).
-let service = BitcoinService()
+let service = BlockchainService()
 
 // Create the genesis block.
 await service.createGenesisBlock()

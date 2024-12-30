@@ -15,7 +15,7 @@ _BitcoinBlockchain_ usage example:
 import BitcoinBlockchain
 
 // Instantiate a fresh Bitcoin service (regtest).
-let service = BitcoinService()
+let service = BlockchainService()
 
 // Create the genesis block.
 await service.createGenesisBlock()

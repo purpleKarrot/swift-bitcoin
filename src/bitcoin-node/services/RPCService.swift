@@ -16,12 +16,12 @@ private let logger = Logger(label: "swift-bitcoin.rpc")
 
 actor RPCService: Service {
 
-    init(host: String, port: Int, eventLoopGroup: EventLoopGroup, bitcoinNode: NodeService, bitcoinService: BitcoinService, p2pService: P2PService, p2pClientServices: [P2PClientService]) {
+    init(host: String, port: Int, eventLoopGroup: EventLoopGroup, bitcoinNode: NodeService, blockchainService: BlockchainService, p2pService: P2PService, p2pClientServices: [P2PClientService]) {
         self.host = host
         self.port = port
         self.eventLoopGroup = eventLoopGroup
         self.bitcoinNode = bitcoinNode
-        self.bitcoinService = bitcoinService
+        self.blockchainService = blockchainService
         self.p2pService = p2pService
         self.p2pClientServices = p2pClientServices
     }
@@ -30,7 +30,7 @@ actor RPCService: Service {
     let port: Int
     let eventLoopGroup: EventLoopGroup
     let bitcoinNode: NodeService
-    let bitcoinService: BitcoinService
+    let blockchainService: BlockchainService
     let p2pService: P2PService
     let p2pClientServices: [P2PClientService]
 
@@ -133,31 +133,31 @@ actor RPCService: Service {
         case GetStatusCommand.method:
             try await rpcStatus(request, outbound: outbound)
         case GenerateToPublicKeyCommand.method:
-            let command = GenerateToPublicKeyCommand(bitcoinService: bitcoinService)
+            let command = GenerateToPublicKeyCommand(blockchainService: blockchainService)
             do {
                 try await outbound.write(command.run(request))
             } catch let error as RPCError {
                 try await outbound.write(.init(id: request.id, error: error))
             }
         case GetBlockCommand.method:
-            let command = GetBlockCommand(bitcoinService: bitcoinService)
+            let command = GetBlockCommand(blockchainService: blockchainService)
             do {
                 try await outbound.write(command.run(request))
             } catch let error as RPCError {
                 try await outbound.write(.init(id: request.id, error: error))
             }
         case GetTransactionCommand.method:
-            let command = GetTransactionCommand(bitcoinService: bitcoinService)
+            let command = GetTransactionCommand(blockchainService: blockchainService)
             do {
                 try await outbound.write(command.run(request))
             } catch let error as RPCError {
                 try await outbound.write(.init(id: request.id, error: error))
             }
         case GetBlockchainInfoCommand.method:
-            let command = GetBlockchainInfoCommand(bitcoinService: bitcoinService)
+            let command = GetBlockchainInfoCommand(blockchainService: blockchainService)
             try await outbound.write(command.run(request))
         case GetMempoolCommand.method:
-            let command = GetMempoolCommand(bitcoinService: bitcoinService)
+            let command = GetMempoolCommand(blockchainService: blockchainService)
             try await outbound.write(command.run(request))
         case SendTransactionCommand.method:
             let command = SendTransactionCommand(bitcoinNode: bitcoinNode)

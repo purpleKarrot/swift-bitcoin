@@ -4,7 +4,35 @@ import Foundation
 import BitcoinCrypto
 import BitcoinBase
 
-struct BitcoinServiceTests {
+struct BlockchainServiceTests {
+
+    /// Tests synchronizing blocks between two blockchains.
+    @Test("Dual blockchain synchronization")
+    func dualBlockchainSync() async throws {
+        let secretKey = SecretKey()
+        let publicKey = secretKey.publicKey
+
+        let alice = BlockchainService()
+        await alice.generateTo(publicKey)
+
+        let bob = BlockchainService()
+
+        let header1 = await alice.headers[1]
+
+        try await bob.processHeaders([header1])
+        await #expect(bob.headers.count == 2)
+
+        let bobMissingBlockIDs = await bob.getNextMissingBlocks(.max)
+        #expect(bobMissingBlockIDs == [header1.id])
+
+        let bobMissingBlocks = await alice.getBlocks(bobMissingBlockIDs)
+        let (bobMissingBlockHeader, bobMissingBlockTransactions) = bobMissingBlocks[0]
+        let block1 = await alice.getBlock(1)
+        #expect(bobMissingBlocks.count == 1 && bobMissingBlockHeader == header1 && bobMissingBlockTransactions == block1.transactions)
+
+        await bob.processBlock(header: block1.header, transactions: block1.transactions)
+        await #expect(bob.transactions.count == 2)
+    }
 
     /// Tests mining empty blocks, spending a coinbase transaction and mine again.
     @Test("Mine and spend")
@@ -15,7 +43,7 @@ struct BitcoinServiceTests {
         let publicKey = secretKey.publicKey
 
         // Instantiate a fresh Bitcoin service (regtest).
-        let service = BitcoinService()
+        let service = BlockchainService()
 
         // Create the genesis block.
         await service.createGenesisBlock()
@@ -104,7 +132,7 @@ struct BitcoinServiceTests {
 
     @Test("Difficulty Adjustment")
     func difficultyAdjustment() async throws {
-        let service = BitcoinService(consensusParams: .init(
+        let service = BlockchainService(consensusParams: .init(
             powLimit: Data([0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]),
             powTargetTimespan: 1 * 1 * 10 * 60, // 12 minutes
             powTargetSpacing: 2 * 60, // 2 minutes

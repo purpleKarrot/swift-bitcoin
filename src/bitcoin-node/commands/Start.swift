@@ -30,8 +30,8 @@ struct Start: AsyncParsableCommand {
 
 private func launchNode(host: String, port: Int) async throws {
 
-    let bitcoinService = BitcoinService()
-    let bitcoinNode = NodeService(bitcoinService: bitcoinService)
+    let blockchainService = BlockchainService()
+    let bitcoinNode = NodeService(blockchainService: blockchainService)
 
     let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: System.coreCount)
 
@@ -41,7 +41,7 @@ private func launchNode(host: String, port: Int) async throws {
 
     let p2pService = P2PService(eventLoopGroup: eventLoopGroup, bitcoinNode: bitcoinNode)
 
-    let rpcService = RPCService(host: host, port: port, eventLoopGroup: eventLoopGroup, bitcoinNode: bitcoinNode, bitcoinService: bitcoinService, p2pService: p2pService, p2pClientServices: p2pClientServices)
+    let rpcService = RPCService(host: host, port: port, eventLoopGroup: eventLoopGroup, bitcoinNode: bitcoinNode, blockchainService: blockchainService, p2pService: p2pService, p2pClientServices: p2pClientServices)
     let serviceGroup = ServiceGroup(configuration: .init(
         services: [bitcoinNode] + p2pClientServices + [p2pService, rpcService],
         gracefulShutdownSignals: [.sigint, .sigterm],
@@ -51,5 +51,5 @@ private func launchNode(host: String, port: Int) async throws {
     await rpcService.setServiceGroup(serviceGroup)
     try await serviceGroup.run()
 
-    await bitcoinService.shutdown()
+    await blockchainService.shutdown()
 }
