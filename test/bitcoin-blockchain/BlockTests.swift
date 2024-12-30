@@ -6,7 +6,7 @@ import BitcoinBase
 
 struct BlockTests {
 
-    let service = BitcoinService()
+    let service = BlockchainService()
 
     /// Tests the creation of the genesis block and genesis coinbase transaction.
     @Test("Genesis block")

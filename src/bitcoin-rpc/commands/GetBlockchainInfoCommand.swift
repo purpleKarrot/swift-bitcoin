@@ -12,18 +12,18 @@ public struct GetBlockchainInfoCommand: Sendable {
         let hashes: [String]
     }
 
-    public init(bitcoinService: BitcoinService) {
-        self.bitcoinService = bitcoinService
+    public init(blockchainService: BlockchainService) {
+        self.blockchainService = blockchainService
     }
 
-    let bitcoinService: BitcoinService
+    let blockchainService: BlockchainService
 
     public func run(_ request: JSONRequest) async -> JSONResponse {
 
         precondition(request.method == Self.method)
 
-        let headers = await bitcoinService.headers
-        let blocks = await bitcoinService.transactions.count
+        let headers = await blockchainService.headers
+        let blocks = await blockchainService.transactions.count
         let result = Output(
             headers: headers.count,
             blocks: blocks,

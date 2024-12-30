@@ -3,7 +3,7 @@ import AsyncAlgorithms
 import BitcoinCrypto
 import BitcoinBase
 
-public actor BitcoinService: Sendable {
+public actor BlockchainService: Sendable {
 
     public enum Error: Swift.Error {
         case unsupportedBlockVersion, orphanHeader, insuficientProofOfWork, headerTooOld, headerTooNew
@@ -120,13 +120,12 @@ public actor BitcoinService: Sendable {
                 throw Error.unsupportedBlockVersion
             }
 
-
             let lastVerifiedHeader = headers.last!
             guard lastVerifiedHeader.id == newHeader.previous else {
                 throw Error.orphanHeader
             }
 
-            guard newHeader.time > getMedianTimePast() else {
+            guard newHeader.time >= getMedianTimePast() else {
                 throw Error.headerTooOld
             }
 
@@ -179,8 +178,25 @@ public actor BitcoinService: Sendable {
             }
             headers.append(header)
         }
+        // Verify merkle root
+        let expectedMerkleRoot = calculateMerkleRoot(blockTransactions)
+        guard header.merkleRoot == expectedMerkleRoot else {
+            // TODO: remove block header
+            return
+        }
         // TODO: Verify each transaction
-        // TODO: Verify merkle root
+        for t in blockTransactions {
+            do {
+                try t.check()
+                // TODO: `try t.checkInputs(coins: [], spendHeight: [])`
+                // TODO: `try t.isFinal(blockHeight: T##Int?, blockTime: T##Int?)`
+                // TODO: `t.checkSequenceLocks(verifyLockTimeSequence: T##Bool, coins: T##[TransactionOutpoint : UnspentOutput], chainTip: T##Int, previousBlockMedianTimePast: T##Int)
+                // TODO: Task { t.verifyScript(prevouts: T##[TransactionOutput], config: T##ScriptConfig) }
+            } catch {
+                // TODO: remove block header
+                return
+            }
+        }
         transactions.append(blockTransactions)
     }
 

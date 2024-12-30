@@ -14,7 +14,7 @@ _BitcoinRPC_ example:
 ```swift
 import BitcoinRPC
 
-let command = GetBlockchainInfoCommand(bitcoinService: satoshiChain)
+let command = GetBlockchainInfoCommand(blockchainService: satoshiChain)
 let output = await command.run(.init(id: "1", method: "get-blockchain-info", params: .none))
 let result = try #require(output.result)
 guard case .string(let blockchainInfo) = result else { fatalError() }
