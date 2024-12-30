@@ -5,17 +5,17 @@ import Foundation
 /// Use a single `ScriptContext` instance to run multiple scripts sequentially.
 public struct ScriptContext {
 
-    init?(_ config: ScriptConfig = .standard, tx: BitcoinTx, inputIndex: Int = 0, prevout: TxOut) {
-        guard tx.inputs.count > 0, inputIndex < tx.inputs.count else {
+    init?(_ config: ScriptConfig = .standard, tx: BitcoinTx, txIn: Int = 0, prevout: TxOut) {
+        guard tx.ins.count > 0, txIn < tx.ins.count else {
             return nil
         }
-        self.init(config, tx: tx, inputIndex: inputIndex, prevouts: [prevout])
+        self.init(config, tx: tx, txIn: txIn, prevouts: [prevout])
     }
 
-    public init(_ config: ScriptConfig = .standard, tx: BitcoinTx = .dummy, inputIndex: Int = 0, prevouts: [TxOut] = []) {
+    public init(_ config: ScriptConfig = .standard, tx: BitcoinTx = .dummy, txIn: Int = 0, prevouts: [TxOut] = []) {
         self.config = config
         self.tx = tx
-        self.inputIndex = inputIndex
+        self.txIn = txIn
         self.prevouts = prevouts
         self.sigVersion = .base
     }
@@ -26,7 +26,7 @@ public struct ScriptContext {
     public private(set) var sigVersion: SigVersion
 
     // Internal state
-    public internal(set) var inputIndex: Int {
+    public internal(set) var txIn: Int {
         didSet {
             reset()
         }
@@ -65,7 +65,7 @@ public struct ScriptContext {
     var sighashCache = SighashCache()
 
     var prevout: TxOut {
-        prevouts[inputIndex]
+        prevouts[txIn]
     }
 
     var currentOp: ScriptOperation {
@@ -109,7 +109,7 @@ public struct ScriptContext {
         self.tapLeafHash = tapLeafHash
 
         if sigVersion == .witnessV1 {
-            if let witness = tx.inputs[inputIndex].witness {
+            if let witness = tx.ins[txIn].witness {
                 sigopBudget = BitcoinScript.sigopBudgetBase + witness.size
             } else {
                 sigopBudget = BitcoinScript.sigopBudgetBase
@@ -180,7 +180,7 @@ public struct ScriptContext {
     }
 
     /// Support for `OP_CHECKSIG` and `OP_CHECKSIGVERIFY`. Legacy scripts only.
-    func getScriptCode(signatures: [Data]) throws -> Data {
+    func getScriptCode(sigs: [Data]) throws -> Data {
         precondition(sigVersion == .base)
         var scriptData = script.data
         if let codesepOffset = lastCodeSeparatorOffset {
@@ -196,7 +196,7 @@ public struct ScriptContext {
             }
 
             var operationContainsSignature = false
-            for sig in signatures {
+            for sig in sigs {
                 if !sig.isEmpty, operation == .pushBytes(sig) {
                     operationContainsSignature = true
                     if config.contains(.constantScriptCode) {

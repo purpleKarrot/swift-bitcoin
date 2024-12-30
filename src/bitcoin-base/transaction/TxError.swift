@@ -2,8 +2,8 @@ import Foundation
 
 /// An error while checking a bitcoin transaction.
 enum TxError: Error {
-    case noInputs,
-         noOutputs,
+    case missingInputs,
+         missingOutputs,
          oversized,
          negativeOutput,
          outputTooLarge,
@@ -13,7 +13,7 @@ enum TxError: Error {
          missingOutpoint,
          inputMissingOrSpent,
          prematureCoinbaseSpend,
-         inputValuesOutOfRange,
+         inputValueOutOfRange,
          inputsValueBelowOutput,
          feeOutOfRange,
          futureLockTime

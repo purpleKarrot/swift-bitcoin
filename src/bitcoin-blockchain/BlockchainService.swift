@@ -188,7 +188,7 @@ public actor BlockchainService: Sendable {
         for t in blockTxs {
             do {
                 try t.check()
-                // TODO: `try t.checkInputs(coins: [], spendHeight: [])`
+                // TODO: `try t.checkIns(coins: [], spendHeight: [])`
                 // TODO: `try t.isFinal(blockHeight: T##Int?, blockTime: T##Int?)`
                 // TODO: `t.checkSequenceLocks(verifyLockTimeSequence: T##Bool, coins: T##[TxOutpoint : UnspentOut], chainTip: T##Int, previousBlockMedianTimePast: T##Int)
                 // TODO: Task { t.verifyScript(prevouts: T##[TxOut], config: T##ScriptConfig) }

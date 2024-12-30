@@ -8,7 +8,7 @@ public class TxSigner {
     /// Creates a new signer with default signature hash type of _all_.
     /// - Parameters:
     ///   - tx: A transaction to sign.
-    ///   - prevouts: All previous outputs corresponding to each of the transaction's inputs.
+    ///   - prevouts: All previous outputs corresponding to each of the transaction's ins.
     public init(tx: BitcoinTx, prevouts: [TxOut]) {
         self.tx = tx
         hasher = .init(tx: tx, prevouts: prevouts, sighashType: .all)
@@ -17,7 +17,7 @@ public class TxSigner {
     /// Creates a new signer.
     /// - Parameters:
     ///   - tx: A transaction to sign.
-    ///   - prevouts: All previous outputs corresponding to each of the transaction's inputs.
+    ///   - prevouts: All previous outputs corresponding to each of the transaction's ins.
     ///   - sighashType: An initial, optional signature hash type.
     public init(tx: BitcoinTx, prevouts: [TxOut], sighashType: SighashType? = Optional.none) {
         self.tx = tx
@@ -28,7 +28,7 @@ public class TxSigner {
     public private(set) var tx: BitcoinTx
 
     /// A hasher instance for generating the required signature hashes.
-    private let hasher: SignatureHash
+    private let hasher: SigHash
 
     /// The current signature hash type.
     public var sighashType: SighashType? {
@@ -38,15 +38,15 @@ public class TxSigner {
     
     /// Signs a multi-signature input.
     /// - Parameters:
-    ///   - inputIndex: A valid input index.
+    ///   - txIn: A valid input index.
     ///   - redeemScript: An optional redeem script (pay-to-script-hash only).
     ///   - witnessScript: An optional witness script (pay-to-witness-script-hash only, also when wrapped).
     ///   - secretKeys: Secret keys for each signature.
     /// - Returns: A transaction with the signed input.
     @discardableResult
-    public func sign(input inputIndex: Int, redeemScript: BitcoinScript? = .none, witnessScript: BitcoinScript? = .none, with secretKeys: [SecretKey]) -> BitcoinTx {
+    public func sign(txIn: Int, redeemScript: BitcoinScript? = .none, witnessScript: BitcoinScript? = .none, with secretKeys: [SecretKey]) -> BitcoinTx {
 
-        let lockScript = hasher.prevouts[inputIndex].script
+        let lockScript = hasher.prevouts[txIn].script
 
         precondition(
             lockScript.isPayToMultisig && redeemScript == .none && witnessScript == .none ||
@@ -58,40 +58,40 @@ public class TxSigner {
         let sigVersion: SigVersion = if witnessScript != .none { .witnessV0 }
             else { .base }
 
-        hasher.set(input: inputIndex, sigVersion: sigVersion, scriptCode: witnessScript?.data ?? redeemScript?.data)
+        hasher.set(txIn: txIn, sigVersion: sigVersion, scriptCode: witnessScript?.data ?? redeemScript?.data)
         let sighash = hasher.value
 
-        var signatures = [Data]()
+        var sigs = [Data]()
         for secretKey in secretKeys {
-            let signature = secretKey.sign(hash: sighash)
-            let extended = ExtendedSignature(signature, sighashType)
-            signatures.append(extended.data)
+            let sig = secretKey.sign(hash: sighash)
+            let extended = ExtendedSig(sig, sighashType)
+            sigs.append(extended.data)
         }
-        if let redeemScript { signatures.append(redeemScript.data) }
-        if let witnessScript { signatures.append(witnessScript.data)}
+        if let redeemScript { sigs.append(redeemScript.data) }
+        if let witnessScript { sigs.append(witnessScript.data)}
 
         if let witnessScript {
-            let witness = [Data()] + signatures
-            tx.inputs[inputIndex].witness = .init(witness)
+            let witness = [Data()] + sigs
+            tx.ins[txIn].witness = .init(witness)
             if lockScript.isPayToScriptHash {
                 let redeemScriptP2WSH = BitcoinScript.payToWitnessScriptHash(witnessScript)
-                tx.inputs[inputIndex].script = [.encodeMinimally(redeemScriptP2WSH.data)]
+                tx.ins[txIn].script = [.encodeMinimally(redeemScriptP2WSH.data)]
             }
         } else {
-            let unlockScript = BitcoinScript([.zero] + signatures.map { ScriptOperation.encodeMinimally($0) })
-            tx.inputs[inputIndex].script = unlockScript
+            let unlockScript = BitcoinScript([.zero] + sigs.map { ScriptOperation.encodeMinimally($0) })
+            tx.ins[txIn].script = unlockScript
         }
         return tx
     }
 
     /// Signs a single key input.
     /// - Parameters:
-    ///   - inputIndex: A valid input index.
+    ///   - inIndex: A valid input index.
     ///   - secretKey: A secret key for signing.
     /// - Returns: A transaction with the signed input.
     @discardableResult
-    public func sign(input inputIndex: Int, with secretKey: SecretKey) -> BitcoinTx {
-        let lockScript = hasher.prevouts[inputIndex].script
+    public func sign(txIn: Int, with secretKey: SecretKey) -> BitcoinTx {
+        let lockScript = hasher.prevouts[txIn].script
 
         let publicKeyHash = Data(Hash160.hash(data: secretKey.publicKey.data))
         let redeemScript = BitcoinScript.payToWitnessPublicKeyHash(publicKeyHash)
@@ -109,32 +109,32 @@ public class TxSigner {
             BitcoinScript.segwitPKHScriptCode(publicKeyHash).data
         } else { .none }
 
-        hasher.set(input: inputIndex, sigVersion: sigVersion, scriptCode: scriptCode)
+        hasher.set(txIn: txIn, sigVersion: sigVersion, scriptCode: scriptCode)
         let sighash = hasher.value
 
-        let signature = if lockScript.isPayToTaproot {
-            secretKey.taprootSecretKey().sign(hash: sighash, signatureType: .schnorr)
+        let sig = if lockScript.isPayToTaproot {
+            secretKey.taprootSecretKey().sign(hash: sighash, sigType: .schnorr)
         } else {
             secretKey.sign(hash: sighash)
         }
 
-        let signatureExt = ExtendedSignature(signature, hasher.sighashType)
+        let sigExt = ExtendedSig(sig, hasher.sighashType)
         // For pay-to-public key we just need to sign the hash and add the signature to the input's unlock script.
-        var witnessData = [signatureExt.data]
+        var witnessData = [sigExt.data]
         if lockScript.isPayToPublicKeyHash || lockScript.isPayToWitnessKeyHash || lockScript.isPayToScriptHash {
             // For pay-to-public-key-hash we need to also add the public key to the unlock script.
             witnessData.append(secretKey.publicKey.data)
         }
         if lockScript.isPayToWitnessKeyHash || lockScript.isPayToScriptHash || lockScript.isPayToTaproot {
             // For pay-to-witness-public-key-hash we sign a different hash and we add the signature and public key to the input's _witness_.
-            tx.inputs[inputIndex].witness = .init(witnessData)
+            tx.ins[txIn].witness = .init(witnessData)
         }
         if lockScript.isPayToPublicKey || lockScript.isPayToPublicKeyHash {
             let ops = witnessData.map { ScriptOperation.pushBytes($0) }
-            tx.inputs[inputIndex].script = .init(ops)
+            tx.ins[txIn].script = .init(ops)
         }
         if lockScript.isPayToScriptHash {
-            tx.inputs[inputIndex].script = [.encodeMinimally(redeemScript.data)]
+            tx.ins[txIn].script = [.encodeMinimally(redeemScript.data)]
         }
         return tx
     }

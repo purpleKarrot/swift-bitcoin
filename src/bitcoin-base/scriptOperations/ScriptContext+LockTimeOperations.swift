@@ -27,7 +27,7 @@ extension ScriptContext {
             throw ScriptError.invalidLockTime
         }
 
-        if tx.inputs[inputIndex].sequence == .final { throw ScriptError.inputSequenceFinal }
+        if tx.ins[txIn].sequence == .final { throw ScriptError.inputSequenceFinal }
     }
 
     /// [BIP112](https://github.com/bitcoin/bips/blob/master/bip-0112.mediawiki)
@@ -46,7 +46,7 @@ extension ScriptContext {
         
         if tx.version == .v1 { throw ScriptError.minimumTxVersionRequired }
         
-        let txSequence = tx.inputs[inputIndex].sequence
+        let txSequence = tx.ins[txIn].sequence
         if txSequence.isLocktimeDisabled { throw ScriptError.sequenceLockTimeDisabled }
         
         if let locktimeBlocks = sequence.locktimeBlocks, let txLocktimeBlocks = txSequence.locktimeBlocks {

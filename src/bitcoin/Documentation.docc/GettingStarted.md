@@ -55,22 +55,22 @@ Prepare our transaction.
 ```swift
 // Grab block 1's coinbase transaction and output.
 let fundingTx = await service.txs[1][0]
-let prevout = fundingTx.outputs[0]
+let prevout = fundingTx.outs[0]
 
 // Create a new transaction spending from the previous transaction's outpoint.
 let unsignedInput = TransactionInput(outpoint: fundingTx.outpoint(0))
 
 // Specify the transaction's output. We'll leave 1000 sats on the table to tip miners. We'll re-use the origin address for simplicity.
 let spendingTx = BitcoinTx(
-    inputs: [unsignedInput],
-    outputs: [address.output(100)])
+    ins: [unsignedInput],
+    outs: [address.out(100)])
 ```
 
 We now need to sign the transaction using our secret key.
 
 ```swift
 let signer = TransactionSigner(tx: spendingTx, prevouts: [prevout])
-let signedTx = signer.sign(input: 0, with: secretKey)
+let signedTx = signer.sign(txIn: 0, with: secretKey)
 ```
 
 We can verify that the transaction was signed correctly.

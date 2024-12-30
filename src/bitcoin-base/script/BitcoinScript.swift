@@ -81,8 +81,8 @@ public struct BitcoinScript: Equatable, Sendable {
     }
 
     /// Simple script execution ``ScriptContext``
-    public func run(_ config: ScriptConfig = .standard, tx: BitcoinTx = .dummy, inputIndex: Int = 0, prevouts: [TxOut] = [], stack: [Data] = [], sigVersion: SigVersion = .base) throws -> [Data] {
-        var context = ScriptContext(config, tx: tx, inputIndex: inputIndex, prevouts: prevouts)
+    public func run(_ config: ScriptConfig = .standard, tx: BitcoinTx = .dummy, txIn: Int = 0, prevouts: [TxOut] = [], stack: [Data] = [], sigVersion: SigVersion = .base) throws -> [Data] {
+        var context = ScriptContext(config, tx: tx, txIn: txIn, prevouts: prevouts)
         try context.run(self, stack: stack, sigVersion: sigVersion)
         return context.stack
     }

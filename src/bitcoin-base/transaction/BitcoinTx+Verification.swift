@@ -11,8 +11,8 @@ extension BitcoinTx {
 
     public func verifyScript(prevouts: [TxOut], config: ScriptConfig = .standard) -> Bool {
         var context = ScriptContext(config, tx: self, prevouts: prevouts)
-        for i in inputs.indices {
-            context.inputIndex = i
+        for i in ins.indices {
+            context.txIn = i
             do {
                 try verifyScript(&context)
             } catch {
@@ -25,14 +25,14 @@ extension BitcoinTx {
 
     /// Initial simplified version of transaction verification that allows for script execution.
     func verifyScript(_ context: inout ScriptContext) throws {
-        let inputIndex = context.inputIndex
+        let txIn = context.txIn
         let prevouts = context.prevouts
         let config = context.config
 
-        precondition(context.tx == self && prevouts.count == inputs.count)
+        precondition(context.tx == self && prevouts.count == ins.count)
 
-        let scriptSig = inputs[inputIndex].script
-        let scriptPubKey = prevouts[inputIndex].script
+        let scriptSig = ins[txIn].script
+        let scriptPubKey = prevouts[txIn].script
 
         // BIP16
         let isPayToScriptHash = config.contains(.payToScriptHash) && scriptPubKey.isPayToScriptHash
@@ -124,9 +124,9 @@ extension BitcoinTx {
     }
 
     private func verifyWitness(_ context: inout ScriptContext, witnessVersion: Int, witnessProgram: Data) throws {
-        let inputIndex = context.inputIndex
+        let txIn = context.txIn
 
-        guard var stack = inputs[inputIndex].witness?.elements else { preconditionFailure() }
+        guard var stack = ins[txIn].witness?.elements else { preconditionFailure() }
 
         if witnessProgram.count == Hash160.Digest.byteCount /* 20 */ {
             // If the version byte is 0, and the witness program is 20 bytes: It is interpreted as a pay-to-witness-public-key-hash (P2WPKH) program.
@@ -178,11 +178,11 @@ extension BitcoinTx {
 
     /// BIP341, BIP342
     private func verifyTaproot(_ context: inout ScriptContext, witnessVersion: Int, witnessProgram: Data) throws {
-        let inputIndex = context.inputIndex
+        let txIn = context.txIn
         let prevouts = context.prevouts
         let config = context.config
 
-        guard let witness = inputs[inputIndex].witness else { preconditionFailure() }
+        guard let witness = ins[txIn].witness else { preconditionFailure() }
         guard config.contains(.taproot) else { return }
 
         var stack = witness.elements
@@ -200,10 +200,10 @@ extension BitcoinTx {
             guard let publicKey = PublicKey(xOnly: witnessProgram) else {
                 fatalError()
             }
-            let extendedSignature = try ExtendedSignature(schnorrData: stack[0])
-            let hasher = SignatureHash(tx: self, input: inputIndex, prevouts: prevouts, sighashType: extendedSignature.sighashType)
-            let sighash = hasher.signatureHashSchnorr(sighashCache: &context.sighashCache)
-            guard extendedSignature.signature.verify(hash: sighash, publicKey: publicKey) else {
+            let extendedSig = try ExtendedSig(schnorrData: stack[0])
+            let hasher = SigHash(tx: self, txIn: txIn, prevouts: prevouts, sighashType: extendedSig.sighashType)
+            let sighash = hasher.sigHashSchnorr(sighashCache: &context.sighashCache)
+            guard extendedSig.sig.verify(hash: sighash, publicKey: publicKey) else {
                 throw ScriptError.invalidSchnorrSignature
             }
             return

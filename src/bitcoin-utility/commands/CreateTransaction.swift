@@ -14,46 +14,46 @@ struct CreateTx: ParsableCommand {
     var inputTx: [String]
 
     @Option(name: .shortAndLong, help: "The ouput index of the corresponding input transaction.")
-    var outputIndex: [Int]
+    var txOut: [Int]
 
     @Option(name: .shortAndLong, help: "Address to send to.")
     var address: [String]
 
     @Option(name: [.customShort("s"), .long], help: "Amount in satoshis (sats) for each of the addresses.")
-    var amount: [BitcoinAmount]
+    var amount: [SatoshiAmount]
 
     mutating func run() throws {
-        guard inputTx.count == outputIndex.count else {
-            throw ValidationError("The number of input transactions must match the number of output indices provided.")
+        guard inputTx.count == txOut.count else {
+            throw ValidationError("The number of input transactions must match the number of out indices provided.")
         }
         guard address.count == amount.count else {
-            throw ValidationError("The number of output addresses must match the number of amounts provided.")
+            throw ValidationError("The number of out addresses must match the number of amounts provided.")
         }
-        let outpoints = zip(inputTx, outputIndex)
+        let outpoints = zip(inputTx, txOut)
         let addressesAmounts = zip(address, amount)
 
-        let inputs = try outpoints.map {
-            let (inputTx, outputIndex) = $0
-            guard let identifier = Data(hex: inputTx) else {
+        let ins = try outpoints.map {
+            let (inputTx, out) = $0
+            guard let txID = TxID(hex: inputTx) else {
                 throw ValidationError("Invalid input transaction hex: \(inputTx)")
             }
-            guard identifier.count == BitcoinTx.idLength else {
+            guard txID.count == BitcoinTx.idLength else {
                 throw ValidationError("Invalid transaction identtifier length: \(inputTx)")
             }
-            return TxIn(outpoint: .init(tx: identifier, output: outputIndex))
+            return TxIn(outpoint: .init(tx: txID, txOut: out))
         }
 
-        let outputs = try addressesAmounts.map {
+        let outs = try addressesAmounts.map {
             let (address, amount) = $0
             guard let address = LegacyAddress(address) else {
                 throw ValidationError("Invalid address: \(address)")
             }
-            return address.output(amount)
+            return address.out(amount)
         }
 
         let tx = BitcoinTx(
-            inputs: inputs,
-            outputs: outputs
+            ins: ins,
+            outs: outs
         )
         print(tx.data.hex)
     }

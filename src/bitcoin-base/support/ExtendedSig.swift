@@ -2,18 +2,18 @@ import Foundation
 import BitcoinCrypto
 
 /// A signature with sighash type extension.
-public struct ExtendedSignature {
+public struct ExtendedSig {
 
-    public init(_ signature: Signature, _ sighashType: SighashType?) {
-        self.signature = signature
+    public init(_ sig: Signature, _ sighashType: SighashType?) {
+        self.sig = sig
         self.sighashType = sighashType
     }
 
     init?(_ data: Data, skipCheck: Bool = false) {
-        guard let last = data.last, let signature = Signature(data.dropLast()) else {
+        guard let last = data.last, let sig = Signature(data.dropLast()) else {
             return nil
         }
-        self.signature = signature
+        self.sig = sig
         let sighashType = SighashType(rawValue: last)
         if !skipCheck && !sighashType.isDefined {
             return nil
@@ -34,17 +34,17 @@ public struct ExtendedSignature {
             // Otherwise, fail.
             throw ScriptError.invalidSchnorrSignatureFormat
         }
-        guard let signature = Signature(sigTmp, type: .schnorr) else {
+        guard let sig = Signature(sigTmp, type: .schnorr) else {
             throw ScriptError.invalidSchnorrSignature
         }
-        self.signature = signature
+        self.sig = sig
         self.sighashType = sighashType
     }
 
-    public let signature: Signature
+    public let sig: Signature
     public let sighashType: SighashType?
 
     public var data: Data {
-        signature.data + sighashType.data
+        sig.data + sighashType.data
     }
 }

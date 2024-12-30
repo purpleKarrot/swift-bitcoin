@@ -14,7 +14,7 @@ struct MessageVerify: ParsableCommand {
     var address: String
 
     @Argument(help: "The signature encoded in Base64 format.")
-    var signature: String
+    var sig: String
 
     @Argument(help: "The message to verify.")
     var message: String
@@ -27,13 +27,13 @@ struct MessageVerify: ParsableCommand {
         guard let messageData = message.data(using: .utf8) else {
             throw ValidationError("Invalid UTF8-encoded message: message")
         }
-        guard let signatureData = Data(base64Encoded: signature) else {
+        guard let sigData = Data(base64Encoded: sig) else {
             throw ValidationError("Invalid Base64-encoded signature: signature")
         }
-        guard let signature = Signature(signatureData, type: .recoverable) else {
+        guard let sig = Signature(sigData, type: .recoverable) else {
             throw ValidationError("Invalid signature data: signature")
         }
-        let result = if let publicKey = signature.recoverPublicKey(messageData: messageData) {
+        let result = if let publicKey = sig.recoverPublicKey(messageData: messageData) {
             Data(Hash160.hash(data: publicKey.data)) == address.hash
         } else {
             false

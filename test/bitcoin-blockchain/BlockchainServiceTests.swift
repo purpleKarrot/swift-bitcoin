@@ -1,6 +1,6 @@
 import Testing
 import Foundation
-@testable import BitcoinBlockchain // @testable for signatureHash(), SigHashType
+@testable import BitcoinBlockchain // @testable for sigHash(), SigHashType
 import BitcoinCrypto
 import BitcoinBase
 
@@ -55,31 +55,31 @@ struct BlockchainServiceTests {
 
         // Grab block 1's coinbase transaction and output.
         let previousTx = await service.getBlock(1).txs[0]
-        let prevout = previousTx.outputs[0]
+        let prevout = previousTx.outs[0]
 
         // Create a new transaction spending from the previous transaction's outpoint.
         let unsignedInput = TxIn(outpoint: previousTx.outpoint(0))
 
         // Specify the transaction's output. We'll leave 1000 sats on the table to tip miners. We'll re-use the origin address for simplicity.
         let unsignedTx = BitcoinTx(
-            inputs: [unsignedInput],
-            outputs: [
+            ins: [unsignedInput],
+            outs: [
                 .init(value: 49_99_999_000, script: .payToPublicKeyHash(publicKey))
             ])
 
         // Sign the transaction by first calculating the signature hash.
-        let sighash = SignatureHash(tx: unsignedTx, input: 0, prevout: prevout).value
+        let sighash = SigHash(tx: unsignedTx, txIn: 0, prevout: prevout).value
 
         // Obtain the signature using our secret key and append the signature hash type.
-        let signature = Signature(hash: sighash, secretKey: secretKey)
-        let signatureData = ExtendedSignature(signature, .all).data
+        let sig = Signature(hash: sighash, secretKey: secretKey)
+        let sigData = ExtendedSig(sig, .all).data
 
         // Sign our input by including the signature and public key.
         let signedInput = TxIn(
             outpoint: unsignedInput.outpoint,
             sequence: unsignedInput.sequence,
             script: .init([
-                .pushBytes(signatureData),
+                .pushBytes(sigData),
                 .pushBytes(publicKey.data)
             ]),
             witness: unsignedInput.witness)
@@ -88,8 +88,8 @@ struct BlockchainServiceTests {
         let signedTx = BitcoinTx(
             version: unsignedTx.version,
             locktime: unsignedTx.locktime,
-            inputs: [signedInput],
-            outputs: unsignedTx.outputs)
+            ins: [signedInput],
+            outs: unsignedTx.outs)
 
         // Make sure the transaction was signed correctly by verifying the scripts.
         #expect(signedTx.verifyScript(prevouts: [prevout]))

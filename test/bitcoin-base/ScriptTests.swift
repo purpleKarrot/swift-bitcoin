@@ -26,10 +26,10 @@ struct ScriptTests {
     ])
     func allVectors(test: TestVector) throws {
         let txCredit = BitcoinTx(
-            inputs: [
+            ins: [
                 .init(outpoint: .coinbase, script: .init([.zero, .zero])),
             ],
-            outputs: [
+            outs: [
                 .init(value: test.amount, script: test.scriptPubKey)
             ]
         )
@@ -41,20 +41,20 @@ struct ScriptTests {
         }
 
         let txSpend = BitcoinTx(
-            inputs: [
+            ins: [
                 .init(outpoint: txCredit.outpoint(0), script: test.scriptSig, witness: witness),
             ],
-            outputs: [
-                .init(value: txCredit.outputs[0].value)
+            outs: [
+                .init(value: txCredit.outs[0].value)
             ]
         )
-        let result = txSpend.verifyScript(prevouts: [txCredit.outputs[0]], config: test.flags)
+        let result = txSpend.verifyScript(prevouts: [txCredit.outs[0]], config: test.flags)
         if test.evalTrue {
             #expect(result)
         } else if test.expectedErrors.isEmpty {
             #expect(!result)
         } else {
-            var context = ScriptContext(test.flags, tx: txSpend, inputIndex: 0, prevouts: [txCredit.outputs[0]])
+            var context = ScriptContext(test.flags, tx: txSpend, txIn: 0, prevouts: [txCredit.outs[0]])
             #expect {
                 try txSpend.verifyScript(&context)
             } throws: { error in
@@ -89,7 +89,7 @@ struct ScriptTests {
 
         init(
             _ witness: [Data]?,
-            _ amount: BitcoinAmount,
+            _ amount: SatoshiAmount,
             _ scriptSig: BitcoinScript,
             _ scriptPubKey: BitcoinScript,
             _ flags: ScriptConfig,
@@ -108,7 +108,7 @@ struct ScriptTests {
         }
 
         let witness: [Data]?
-        let amount: BitcoinAmount
+        let amount: SatoshiAmount
         let scriptSig: BitcoinScript
         let scriptPubKey: BitcoinScript
         let flags: ScriptConfig

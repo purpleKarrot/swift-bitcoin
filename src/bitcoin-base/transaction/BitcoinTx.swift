@@ -18,13 +18,13 @@ public struct BitcoinTx: Equatable, Sendable {
     /// - Parameters:
     ///   - version: Defaults fo version 1. Version 2 can be specified to unlock per input relative lock times.
     ///   - locktime: The absolute lock time by which this transaction will be able to be mined. It can be specified as a block height or a calendar date. Disabled by default.
-    ///   - inputs: The coins this transaction will be spending.
-    ///   - outputs: The new coins this transaction will create.
-    public init(version: TxVersion = .v1, locktime: TxLocktime = .disabled, inputs: [TxIn], outputs: [TxOut]) {
+    ///   - ins The coins this transaction will be spending.
+    ///   - outs: The new coins this transaction will create.
+    public init(version: TxVersion = .v1, locktime: TxLocktime = .disabled, ins: [TxIn], outs: [TxOut]) {
         self.version = version
         self.locktime = locktime
-        self.inputs = inputs
-        self.outputs = outputs
+        self.ins = ins
+        self.outs = outs
     }
 
     // MARK: - Instance Properties
@@ -36,10 +36,10 @@ public struct BitcoinTx: Equatable, Sendable {
     public var locktime: TxLocktime
 
     /// All of the inputs consumed (coins spent) by this transaction.
-    public var inputs: [TxIn]
+    public var ins: [TxIn]
 
     /// The new outputs to be created by this transaction.
-    public var outputs: [TxOut]
+    public var outs: [TxOut]
 
     // MARK: - Computed Properties
 
@@ -57,18 +57,18 @@ public struct BitcoinTx: Equatable, Sendable {
     public var virtualSize: Int { Int((Double(weight) / 4).rounded(.up)) }
 
     public var isCoinbase: Bool {
-        inputs.count == 1 && inputs[0].outpoint == TxOutpoint.coinbase
+        ins.count == 1 && ins[0].outpoint == TxOutpoint.coinbase
     }
 
     /// BIP141
-    var hasWitness: Bool { inputs.contains { $0.witness != .none } }
+    var hasWitness: Bool { ins.contains { $0.witness != .none } }
 
     // MARK: - Instance Methods
 
     /// Creates an outpoint from a particular output in this transaction to be used when creating an ``TxIn`` instance.
-    public func outpoint(_ outputIndex: Int) -> TxOutpoint {
-        precondition(outputIndex < outputs.count)
-        return .init(tx: id, output: outputIndex)
+    public func outpoint(_ index: Int) -> TxOutpoint {
+        precondition(index < outs.count)
+        return .init(tx: id, txOut: index)
     }
 
     // MARK: - Type Properties
@@ -89,7 +89,7 @@ public struct BitcoinTx: Equatable, Sendable {
 
         let genesisTx = BitcoinTx(
             version: .v1,
-            inputs: [.init(
+            ins: [.init(
                 outpoint: .coinbase,
                 sequence: .final,
                 script: .init([
@@ -97,7 +97,7 @@ public struct BitcoinTx: Equatable, Sendable {
                     .pushBytes(Data([0x04])),
                     .pushBytes(genesisMessage.data(using: .ascii)!)
                 ]))],
-            outputs: [
+            outs: [
                 .init(value: blockSubsidy,
                       script: .init([
                         .pushBytes(PublicKey.satoshi.uncompressedData!),
@@ -124,9 +124,9 @@ public struct BitcoinTx: Equatable, Sendable {
             .pushBytes(witnessCommitmentHeader + witnessCommitmentHash),
         ])
 
-        let coinbaseTx = BitcoinTx(version: .v2, inputs: [
+        let coinbaseTx = BitcoinTx(version: .v2, ins: [
             .init(outpoint: .coinbase, script: .init([.encodeMinimally(blockHeight), .zero]), witness: .init([witnessReservedValue]))
-        ], outputs: [
+        ], outs: [
             .init(value: blockSubsidy, script: .init([
                 // Standard p2pkh
                 .dup,
@@ -140,7 +140,7 @@ public struct BitcoinTx: Equatable, Sendable {
         return coinbaseTx
     }
 
-    public static let dummy = Self(inputs: [.init(outpoint: .coinbase)], outputs: [])
+    public static let dummy = Self(ins: [.init(outpoint: .coinbase)], outs: [])
 }
 
 extension BitcoinTx {
@@ -167,41 +167,41 @@ extension BitcoinTx {
             isSegwit = false
         }
 
-        guard let inputsCount = data.varInt else {
+        guard let insCount = data.varInt else {
             return nil
         }
-        data = data.dropFirst(inputsCount.varIntSize)
+        data = data.dropFirst(insCount.varIntSize)
 
-        var inputs = [TxIn]()
-        for _ in 0 ..< inputsCount {
-            guard let input = TxIn(data) else {
+        var ins = [TxIn]()
+        for _ in 0 ..< insCount {
+            guard let txIn = TxIn(data) else {
                 return nil
             }
-            inputs.append(input)
-            data = data.dropFirst(input.size)
+            ins.append(txIn)
+            data = data.dropFirst(txIn.size)
         }
 
-        guard let outputsCount = data.varInt else {
+        guard let outsCount = data.varInt else {
             return nil
         }
-        data = data.dropFirst(outputsCount.varIntSize)
+        data = data.dropFirst(outsCount.varIntSize)
 
-        var outputs = [TxOut]()
-        for _ in 0 ..< outputsCount {
+        var outs = [TxOut]()
+        for _ in 0 ..< outsCount {
             guard let out = TxOut(data) else {
                 return nil
             }
-            outputs.append(out)
+            outs.append(out)
             data = data.dropFirst(out.size)
         }
 
         // BIP144
         if isSegwit {
-            for i in inputs.indices {
+            for i in ins.indices {
                 guard let witness = InputWitness(data) else { return nil }
                 data = data.dropFirst(witness.size)
-                let input = inputs[i]
-                inputs[i] = .init(outpoint: input.outpoint, sequence: input.sequence, script: input.script, witness: witness)
+                let txIn = ins[i]
+                ins[i] = .init(outpoint: txIn.outpoint, sequence: txIn.sequence, script: txIn.script, witness: witness)
             }
         }
 
@@ -209,7 +209,7 @@ extension BitcoinTx {
             return nil
         }
         data = data.dropFirst(TxLocktime.size)
-        self.init(version: version, locktime: locktime, inputs: inputs, outputs: outputs)
+        self.init(version: version, locktime: locktime, ins: ins, outs: outs)
     }
 
     // MARK: - Computed Properties
@@ -224,14 +224,14 @@ extension BitcoinTx {
         if hasWitness {
             offset = ret.addData(Data([BitcoinTx.segwitMarker, BitcoinTx.segwitFlag]), at: offset)
         }
-        offset = ret.addData(Data(varInt: inputsUInt64), at: offset)
-        offset = ret.addData(inputs.reduce(Data()) { $0 + $1.data }, at: offset)
-        offset = ret.addData(Data(varInt: outputsUInt64), at: offset)
-        offset = ret.addData(outputs.reduce(Data()) { $0 + $1.data }, at: offset)
+        offset = ret.addData(Data(varInt: insUInt64), at: offset)
+        offset = ret.addData(ins.reduce(Data()) { $0 + $1.data }, at: offset)
+        offset = ret.addData(Data(varInt: outsUInt64), at: offset)
+        offset = ret.addData(outs.reduce(Data()) { $0 + $1.data }, at: offset)
 
         // BIP144
         if hasWitness {
-            offset = ret.addData(inputs.reduce(Data()) {
+            offset = ret.addData(ins.reduce(Data()) {
                 guard let witness = $1.witness else {
                     return $0
                 }
@@ -246,16 +246,16 @@ extension BitcoinTx {
     /// BIP141: Total transaction size is the transaction size in bytes serialized as described in BIP144, including base data and witness data.
     public var size: Int { baseSize + witnessSize }
 
-    private var inputsUInt64: UInt64 { .init(inputs.count) }
-    private var outputsUInt64: UInt64 { .init(outputs.count) }
+    private var insUInt64: UInt64 { .init(ins.count) }
+    private var outsUInt64: UInt64 { .init(outs.count) }
 
     private var nonWitnessData: Data {
         var ret = Data(count: baseSize)
         var offset = ret.addData(version.data)
-        offset = ret.addData(Data(varInt: inputsUInt64), at: offset)
-        offset = ret.addData(inputs.reduce(Data()) { $0 + $1.data }, at: offset)
-        offset = ret.addData(Data(varInt: outputsUInt64), at: offset)
-        offset = ret.addData(outputs.reduce(Data()) { $0 + $1.data }, at: offset)
+        offset = ret.addData(Data(varInt: insUInt64), at: offset)
+        offset = ret.addData(ins.reduce(Data()) { $0 + $1.data }, at: offset)
+        offset = ret.addData(Data(varInt: outsUInt64), at: offset)
+        offset = ret.addData(outs.reduce(Data()) { $0 + $1.data }, at: offset)
         ret.addData(locktime.data, at: offset)
         return ret
     }
@@ -263,12 +263,12 @@ extension BitcoinTx {
     /// BIP141: Base transaction size is the size of the transaction serialised with the witness data stripped.
     /// AKA `identifierSize`
     var baseSize: Int {
-        TxVersion.size + inputsUInt64.varIntSize + inputs.reduce(0) { $0 + $1.size } + outputsUInt64.varIntSize + outputs.reduce(0) { $0 + $1.size } + TxLocktime.size
+        TxVersion.size + insUInt64.varIntSize + ins.reduce(0) { $0 + $1.size } + outsUInt64.varIntSize + outs.reduce(0) { $0 + $1.size } + TxLocktime.size
     }
 
     /// BIP141 / BIP144
     var witnessSize: Int {
-        hasWitness ? (MemoryLayout.size(ofValue: BitcoinTx.segwitMarker) + MemoryLayout.size(ofValue: BitcoinTx.segwitFlag)) + inputs.reduce(0) { $0 + ($1.witness?.size ?? 0) } : 0
+        hasWitness ? (MemoryLayout.size(ofValue: BitcoinTx.segwitMarker) + MemoryLayout.size(ofValue: BitcoinTx.segwitFlag)) + ins.reduce(0) { $0 + ($1.witness?.size ?? 0) } : 0
     }
 
     public static let idLength = Hash256.Digest.byteCount

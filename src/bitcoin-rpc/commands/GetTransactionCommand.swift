@@ -15,7 +15,7 @@ public struct GetTransactionCommand: Sendable {
 
         struct Output: Encodable {
             let raw: String
-            let amount: BitcoinAmount
+            let amount: SatoshiAmount
             let script: String
         }
 
@@ -44,13 +44,13 @@ public struct GetTransactionCommand: Sendable {
         guard let tx = await blockchainService.getTx(txID) else {
             throw RPCError(.invalidParams("txID"), description: "Transaction not found.")
         }
-        let inputs = tx.inputs.map {
+        let ins = tx.ins.map {
             Output.Input(
                 tx: $0.outpoint.txID.hex,
-                output: $0.outpoint.outputIndex
+                output: $0.outpoint.txOut
             )
         }
-        let outputs = tx.outputs.map {
+        let outs = tx.outs.map {
             Output.Output(
                 raw: $0.data.hex,
                 amount: $0.value,
@@ -60,8 +60,8 @@ public struct GetTransactionCommand: Sendable {
         let result = Output(
             id: tx.id.hex,
             witnessID: tx.witnessID.hex,
-            inputs: inputs,
-            outputs: outputs
+            inputs: ins,
+            outputs: outs
         )
         return .init(id: request.id, result: JSONObject.string(result.description))
     }

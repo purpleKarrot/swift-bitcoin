@@ -13,7 +13,7 @@ extension ScriptContext {
             return
         }
 
-        let scriptCode = try sigVersion == .base ? getScriptCode(signatures: [sig]) : segwitScriptCode
+        let scriptCode = try sigVersion == .base ? getScriptCode(sigs: [sig]) : segwitScriptCode
         let result = try checkSigECDSA(sig, publicKeyData, scriptCode: scriptCode)
         if !result && config.contains(.nullFail) && !sig.isEmpty {
             throw ScriptError.signatureNotEmpty
@@ -43,7 +43,7 @@ extension ScriptContext {
             throw ScriptError.operationsLimitExceeded
         }
 
-        let scriptCode = try sigVersion == .base ? getScriptCode(signatures: sigs) : segwitScriptCode
+        let scriptCode = try sigVersion == .base ? getScriptCode(sigs: sigs) : segwitScriptCode
         var keysCount = publicKeys.count
         var sigsCount = sigs.count
         var keyIndex = publicKeys.startIndex
@@ -172,29 +172,29 @@ extension ScriptContext {
         // Empty signature. Not strictly DER encoded, but allowed to provide a
         // compact way to provide an invalid signature for use with CHECK(MULTI)SIG
         guard /* !sig.isEmpty, */
-              let extendedSignature = ExtendedSignature(sig, skipCheck: true) else {
+              let extendedSig = ExtendedSig(sig, skipCheck: true) else {
             return false
         }
 
         if config.contains(.strictDER) || config.contains(.lowS) || config.contains(.strictEncoding) {
-            guard extendedSignature.signature.isEncodingValid else {
+            guard extendedSig.sig.isEncodingValid else {
                 throw ScriptError.invalidSignatureEncoding
             }
         }
-        if config.contains(.lowS) && !extendedSignature.signature.isLowS {
+        if config.contains(.lowS) && !extendedSig.sig.isLowS {
             throw ScriptError.nonLowSSignature
         }
 
         // sighashType is never nil for ECDSA
-        guard let sighashType = extendedSignature.sighashType else { preconditionFailure() }
+        guard let sighashType = extendedSig.sighashType else { preconditionFailure() }
 
         if config.contains(.strictEncoding) && !sighashType.isDefined {
             throw ScriptError.undefinedSighashType
         }
 
-        let sighash = SignatureHash(tx: tx, input: inputIndex, sigVersion: sigVersion, prevout: prevout, scriptCode: scriptCode, sighashType: sighashType).value
+        let sighash = SigHash(tx: tx, txIn: txIn, sigVersion: sigVersion, prevout: prevout, scriptCode: scriptCode, sighashType: sighashType).value
         if let publicKey = PublicKey(publicKeyData) {
-            return extendedSignature.signature.verify(hash: sighash, publicKey: publicKey)
+            return extendedSig.sig.verify(hash: sighash, publicKey: publicKey)
         }
         return false
     }
@@ -212,12 +212,12 @@ extension ScriptContext {
         if let publicKey = PublicKey(xOnly: publicKeyData), !sig.isEmpty {
 
             let ext = TapscriptExtension(tapLeafHash: tapLeafHash, keyVersion: keyVersion, codesepPos: codeSeparatorPosition)
-            let extendedSignature = try ExtendedSignature(schnorrData: sig)
-            let hasher = SignatureHash(tx: tx, input: inputIndex, prevouts: prevouts, tapscriptExtension: ext, sighashType: extendedSignature.sighashType)
-            let sighash = hasher.signatureHashSchnorr(sighashCache: &sighashCache)
+            let extendedSig = try ExtendedSig(schnorrData: sig)
+            let hasher = SigHash(tx: tx, txIn: txIn, prevouts: prevouts, tapscriptExtension: ext, sighashType: extendedSig.sighashType)
+            let sighash = hasher.sigHashSchnorr(sighashCache: &sighashCache)
 
             // Validation failure in this case immediately terminates script execution with failure.
-            guard extendedSignature.signature.verify(hash: sighash, publicKey: publicKey) else {
+            guard extendedSig.sig.verify(hash: sighash, publicKey: publicKey) else {
                 throw ScriptError.invalidSchnorrSignature
             }
         } else if !sig.isEmpty {

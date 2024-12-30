@@ -41,12 +41,12 @@ struct TxTests {
 
             let expectedInputCount = txInfo.vin.count
             let expectedOutputCount = txInfo.vout.count
-            #expect(tx.inputs.count == expectedInputCount)
-            #expect(tx.outputs.count == expectedOutputCount)
+            #expect(tx.ins.count == expectedInputCount)
+            #expect(tx.outs.count == expectedOutputCount)
 
             for i in txInfo.vin.indices {
                 let vinData = txInfo.vin[i]
-                let input = tx.inputs[i]
+                let input = tx.ins[i]
 
                 let expectedSequence = vinData.sequence
                 #expect(input.sequence.sequenceValue == expectedSequence)
@@ -68,7 +68,7 @@ struct TxTests {
                     }
 
                     #expect(input.outpoint.txID == expectedTx)
-                    #expect(input.outpoint.outputIndex == expectedOutput)
+                    #expect(input.outpoint.txOut == expectedOutput)
                     let expectedScript = BitcoinScript(expectedScriptData)
                     #expect(input.script == expectedScript)
 
@@ -83,16 +83,16 @@ struct TxTests {
             }
             for i in txInfo.vout.indices {
                 let voutData = txInfo.vout[i]
-                let output = tx.outputs[i]
+                let out = tx.outs[i]
 
                 let expectedValue = voutData.value
-                #expect(Double(output.value) / 100_000_000 == expectedValue)
+                #expect(Double(out.value) / 100_000_000 == expectedValue)
 
                 guard let expectedScriptData = Data(hex: voutData.scriptPubKey.hex) else {
-                    Issue.record("Transaction output \(i) script data could not be decoded."); continue
+                    Issue.record("Transaction out \(i) script data could not be decoded."); continue
                 }
                 let expectedScript = BitcoinScript(expectedScriptData)
-                #expect(output.script == expectedScript)
+                #expect(out.script == expectedScript)
             }
         }
     }

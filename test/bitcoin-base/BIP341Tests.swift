@@ -227,8 +227,8 @@ struct BIP341Tests {
         )
 
         var cache = SighashCache()
-        let hasher = SignatureHash(tx: tx, input: 0, prevouts: utxosSpent, sighashType: SighashType?.none)
-        _ = hasher.signatureMessageSchnorr(sighashCache: &cache)
+        let hasher = SigHash(tx: tx, txIn: 0, prevouts: utxosSpent, sighashType: SighashType?.none)
+        _ = hasher.sigMessageSchnorr(sighashCache: &cache)
         if let shaAmounts = cache.shaAmounts, let shaOuts = cache.shaOuts, let shaPrevouts = cache.shaPrevouts, let shaScriptPubKeys = cache.shaScriptPubKeys, let shaSequences = cache.shaSequences {
             #expect(shaAmounts == intermediary.hashAmounts)
             #expect(shaOuts == intermediary.hashOutputs)
@@ -444,7 +444,7 @@ struct BIP341Tests {
             let secretKeyData = testCase.given.internalSecretKey
             let merkleRoot = testCase.given.merkleRoot
             let sighashType = testCase.given.sighashType
-            let inputIndex = testCase.given.txinIndex
+            let txIn = testCase.given.txinIndex
 
             // Expected
             let expectedInternalPublicKey = testCase.intermediary.internalPubkey
@@ -465,8 +465,8 @@ struct BIP341Tests {
             let tweakedSecretKey = secretKey.tweakXOnly(tweak)
             #expect(tweakedSecretKey.data == expectedTweakedSecretKey)
 
-            let hasher = SignatureHash(tx: tx, input: inputIndex, prevouts: utxosSpent, sighashType: sighashType)
-            let sigMsg = hasher.signatureMessageSchnorr(sighashCache: &cache)
+            let hasher = SigHash(tx: tx, txIn: txIn, prevouts: utxosSpent, sighashType: sighashType)
+            let sigMsg = hasher.sigMessageSchnorr(sighashCache: &cache)
 
             #expect(cache.shaAmountsHit == testCase.intermediary.precomputedUsed.hashAmounts)
             #expect(cache.shaOutsHit == testCase.intermediary.precomputedUsed.hashOutputs)
@@ -475,7 +475,7 @@ struct BIP341Tests {
             #expect(cache.shaScriptPubKeysHit == testCase.intermediary.precomputedUsed.hashScriptPubkeys)
             #expect(sigMsg == expectedSigMsg)
 
-            let sighash = hasher.signatureHashSchnorr(sighashCache: &cache)
+            let sighash = hasher.sigHashSchnorr(sighashCache: &cache)
             #expect(sighash == expectedSighash)
 
             let hashTypeSuffix: Data
@@ -484,9 +484,9 @@ struct BIP341Tests {
             } else {
                 hashTypeSuffix = Data()
             }
-            let signature = Signature(hash: sighash, secretKey: tweakedSecretKey, type: .schnorr)
-            let sig = signature.data + hashTypeSuffix
-            #expect([sig] == expectedWitness)
+            let sig = Signature(hash: sighash, secretKey: tweakedSecretKey, type: .schnorr)
+            let extSig = sig.data + hashTypeSuffix
+            #expect([extSig] == expectedWitness)
         }
 
         // TODO: Figure out how to sign input 2 (legacy) and 5 (segwit v0)

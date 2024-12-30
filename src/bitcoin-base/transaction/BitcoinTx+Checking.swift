@@ -5,8 +5,8 @@ extension BitcoinTx {
 
     // MARK: - Computed Properties
 
-    private var valueOut: BitcoinAmount {
-        outputs.reduce(0) { $0 + $1.value }
+    private var valueOut: SatoshiAmount {
+        outs.reduce(0) { $0 + $1.value }
     }
     
     // MARK: - Instance Methods
@@ -14,11 +14,11 @@ extension BitcoinTx {
     /// This function is called when validating a transaction and it's consensus critical.
     public func check() throws {
         // Basic checks that don't depend on any context
-        guard !inputs.isEmpty else {
-            throw TxError.noInputs
+        guard !ins.isEmpty else {
+            throw TxError.missingInputs
         }
-        guard !outputs.isEmpty else {
-            throw TxError.noOutputs
+        guard !outs.isEmpty else {
+            throw TxError.missingOutputs
         }
 
         // Size limits (this doesn't take the witness into account, as that hasn't been checked for malleability)
@@ -27,39 +27,39 @@ extension BitcoinTx {
         }
 
         // Check for negative or overflow output values (see CVE-2010-5139)
-        var valueOut: BitcoinAmount = 0
-        for output in outputs {
-            guard output.value >= 0 else {
+        var valueOut: SatoshiAmount = 0
+        for out in outs {
+            guard out.value >= 0 else {
                 throw TxError.negativeOutput
             }
-            guard output.value <= Self.maxMoney else {
+            guard out.value <= Self.maxMoney else {
                 throw TxError.outputTooLarge
             }
-            valueOut += output.value
+            valueOut += out.value
             guard valueOut >= 0 && valueOut <= Self.maxMoney else {
                 throw TxError.totalOutputsTooLarge
             }
         }
 
         // Check for duplicate inputs (see CVE-2018-17144)
-        // While Consensus::CheckTxInputs does check if all inputs of a tx are available, and UpdateCoins marks all inputs
-        // of a tx as spent, it does not check if the tx has duplicate inputs.
+        // While Consensus::CheckTxIns does check if all inputs of a tx are available, and UpdateCoins marks all inputs
+        // of a tx as spent, it does not check if the tx has duplicate ins.
         // Failure to run this check will result in either a crash or an inflation bug, depending on the implementation of
         // the underlying coins database.
         var outpoints = Set<TxOutpoint>()
-        for input in inputs {
-            outpoints.insert(input.outpoint)
+        for txIn in ins {
+            outpoints.insert(txIn.outpoint)
         }
-        guard inputs.count == outpoints.count else {
+        guard ins.count == outpoints.count else {
             throw TxError.duplicateInput
         }
 
-        if isCoinbase && (inputs[0].script.size < 2 || inputs[0].script.size > 100) {
+        if isCoinbase && (ins[0].script.size < 2 || ins[0].script.size > 100) {
             throw TxError.coinbaseLengthOutOfRange
         }
         if !isCoinbase {
-            for input in inputs {
-                if input.outpoint == TxOutpoint.coinbase {
+            for txIn in ins {
+                if txIn.outpoint == TxOutpoint.coinbase {
                     throw TxError.missingOutpoint
                 }
             }
@@ -67,30 +67,30 @@ extension BitcoinTx {
     }
 
     /// This function is called when validating a transaction and it's consensus critical. Needs to be called after ``check()``
-    public func checkInputs(coins: [TxOutpoint : UnspentOut], spendHeight: Int) throws {
+    public func checkIns(coins: [TxOutpoint : UnspentOut], spendHeight: Int) throws {
         // are the actual inputs available?
         if !isCoinbase {
-            for outpoint in inputs.map(\.outpoint) {
+            for outpoint in ins.map(\.outpoint) {
                 guard coins[outpoint] != .none else {
                     throw TxError.inputMissingOrSpent
                 }
             }
         }
 
-        var valueIn = BitcoinAmount(0)
-        for input in inputs {
-            let outpoint = input.outpoint
+        var valueIn = SatoshiAmount(0)
+        for txIn in ins {
+            let outpoint = txIn.outpoint
             guard let coin = coins[outpoint] else {
                 preconditionFailure()
             }
             if coin.isCoinbase && spendHeight - coin.height < Self.coinbaseMaturity {
                 throw TxError.prematureCoinbaseSpend
             }
-            valueIn += coin.output.value
-            guard coin.output.value >= 0 && coin.output.value <= Self.maxMoney,
+            valueIn += coin.txOut.value
+            guard coin.txOut.value >= 0 && coin.txOut.value <= Self.maxMoney,
                   valueIn >= 0 && valueIn <= Self.maxMoney
             else {
-                throw TxError.inputValuesOutOfRange
+                throw TxError.inputValueOutOfRange
             }
         }
 
@@ -125,7 +125,7 @@ extension BitcoinTx {
         // also check that the spending input's nSequence != SEQUENCE_FINAL,
         // ensuring that an unsatisfied nLockTime value will actually cause
         // IsFinalTx() to return false here:
-        return inputs.allSatisfy { $0.sequence == .final }
+        return ins.allSatisfy { $0.sequence == .final }
     }
 
     /// BIP68 - Untested - Entrypoint 1.
@@ -139,8 +139,8 @@ extension BitcoinTx {
         let nextBlockHeight = chainTip + 1
         var heights = [Int]()
         // pcoinsTip contains the UTXO set for chainActive.Tip()
-        for input in inputs {
-            guard let coin = coins[input.outpoint] else {
+        for txIn in ins {
+            guard let coin = coins[txIn.outpoint] else {
                 preconditionFailure()
             }
             if coin.height == 0x7FFFFFFF /* MEMPOOL_HEIGHT */ {
@@ -167,7 +167,7 @@ extension BitcoinTx {
     /// Called from ``sequenceLocks()``.
     func calculateSequenceLocks(verifyLockTimeSequence: Bool, previousHeights: inout [Int], blockHeight: Int) -> (Int, Int) {
 
-        precondition(previousHeights.count == inputs.count);
+        precondition(previousHeights.count == ins.count);
 
         // Will be set to the equivalent height- and time-based nLockTime
         // values that would be necessary to satisfy all relative lock-
@@ -186,21 +186,21 @@ extension BitcoinTx {
         // unless we have been instructed to
         guard enforceBIP68 else { return (minHeight, minTime) }
 
-        for inputIndex in inputs.indices {
-            let input = inputs[inputIndex]
+        for inIndex in ins.indices {
+            let txIn = ins[inIndex]
 
             // Sequence numbers with the most significant bit set are not
             // treated as relative lock-times, nor are they given any
             // consensus-enforced meaning at this point.
-            if input.sequence.isLocktimeDisabled {
+            if txIn.sequence.isLocktimeDisabled {
                 // The height of this input is not relevant for sequence locks
-                previousHeights[inputIndex] = 0
+                previousHeights[inIndex] = 0
                 continue
             }
 
-            let coinHeight = previousHeights[inputIndex]
+            let coinHeight = previousHeights[inIndex]
 
-            if let locktimeSeconds = input.sequence.locktimeSeconds {
+            if let locktimeSeconds = txIn.sequence.locktimeSeconds {
                 // NOTE: Subtract 1 to maintain nLockTime semantics
                 // BIP68 relative lock times have the semantics of calculating
                 // the first block or time at which the transaction would be
@@ -216,7 +216,7 @@ extension BitcoinTx {
                 // block prior.
                 let coinTime = 0 // TODO: Retrieve the block previous to the coin height `blockHeight.GetAncestor(std::max(nCoinHeight-1, 0))->GetMedianTimePast()`
                 minTime = max(minTime, coinTime + locktimeSeconds - 1)
-            } else if let locktimeBlocks = input.sequence.locktimeBlocks {
+            } else if let locktimeBlocks = txIn.sequence.locktimeBlocks {
                 minHeight = max(minHeight, coinHeight + locktimeBlocks - 1)
             }
         }

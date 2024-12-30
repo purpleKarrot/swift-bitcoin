@@ -8,5 +8,5 @@ public protocol BitcoinAddress: CustomStringConvertible, Equatable, Sendable {
     init?(_ address: String)
 
     /// Generates an output for use in transactions.
-    func output(_ value: BitcoinAmount) -> TxOut
+    func out(_ value: SatoshiAmount) -> TxOut
 }

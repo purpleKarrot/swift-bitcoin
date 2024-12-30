@@ -12,7 +12,7 @@ struct SignTx: ParsableCommand {
     )
 
     @Option(name: .shortAndLong, help: "The input to sign.")
-    var input: Int
+    var txIn: Int
 
     @Option(name: .shortAndLong, help: "The previous transaction outputs in raw hexadecimal format.")
     var prevout: [String]
@@ -46,7 +46,7 @@ struct SignTx: ParsableCommand {
             return prevout
         }
         let signer = TxSigner(tx: tx, prevouts: prevouts)
-        let signed = signer.sign(input: input, with: secretKey)
+        let signed = signer.sign(txIn: txIn, with: secretKey)
         print(signed.data.hex)
         destroyECCSigningContext()
     }

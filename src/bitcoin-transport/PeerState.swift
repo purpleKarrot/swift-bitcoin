@@ -66,7 +66,7 @@ public struct PeerState: Sendable {
     var checkPongTask: Task<(), Never>?
 
     /// BIP133
-    public internal(set) var feeFilterRate = BitcoinAmount?.none // TODO: Honor when relaying transacions (inv) to this peer, #188
+    public internal(set) var feeFilterRate = SatoshiAmount?.none // TODO: Honor when relaying transacions (inv) to this peer, #188
 
     var outgoing: Bool { !incoming }
 

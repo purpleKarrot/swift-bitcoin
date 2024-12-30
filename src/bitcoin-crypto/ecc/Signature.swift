@@ -3,25 +3,25 @@ import LibSECP256k1
 import ECCHelper // For `ecdsa_signature_parse_der_lax()`
 
 /// Supported types of signature and signature encodings.
-public enum SignatureType: Equatable, Sendable {
+public enum SigType: Equatable, Sendable {
     case ecdsa, compact, recoverable, schnorr
 }
 
 /// Elliptic curve SECP256K1 signature supporting both ECDSA and Schnorr algorithms.
 public struct Signature: Equatable, Sendable, CustomStringConvertible {
 
-    public init?(message: String, secretKey: SecretKey, type: SignatureType = .ecdsa, recoverCompressedKeys: Bool = true) {
+    public init?(message: String, secretKey: SecretKey, type: SigType = .ecdsa, recoverCompressedKeys: Bool = true) {
         guard let messageData = message.data(using: .utf8) else {
             return nil
         }
         self.init(messageData: messageData, secretKey: secretKey, type: type, recoverCompressedKeys: recoverCompressedKeys)
     }
 
-    public init(messageData: Data, secretKey: SecretKey, type: SignatureType = .ecdsa, additionalEntropy: Data? = .none, recoverCompressedKeys: Bool = true) {
+    public init(messageData: Data, secretKey: SecretKey, type: SigType = .ecdsa, additionalEntropy: Data? = .none, recoverCompressedKeys: Bool = true) {
         self.init(hash: getMessageHash(messageData: messageData, type: type), secretKey: secretKey, type: type, additionalEntropy: additionalEntropy, recoverCompressedKeys: recoverCompressedKeys)
     }
 
-    public init(hash: Data, secretKey: SecretKey, type: SignatureType = .ecdsa, additionalEntropy: Data? = .none, recoverCompressedKeys: Bool = true) {
+    public init(hash: Data, secretKey: SecretKey, type: SigType = .ecdsa, additionalEntropy: Data? = .none, recoverCompressedKeys: Bool = true) {
         precondition(hash.count == Self.hashLength)
         switch type {
         case .ecdsa:
@@ -38,14 +38,14 @@ public struct Signature: Equatable, Sendable, CustomStringConvertible {
         self.type = type
     }
 
-    public init?(_ hex: String, type: SignatureType = .ecdsa) {
+    public init?(_ hex: String, type: SigType = .ecdsa) {
         guard let data = Data(hex: hex) else {
             return nil
         }
         self.init(data, type: type)
     }
 
-    public init?(_ data: Data, type: SignatureType = .ecdsa) {
+    public init?(_ data: Data, type: SigType = .ecdsa) {
         switch type {
         case .ecdsa:
             guard data.count >= Self.compactSignatureLength && data.count <= Self.ecdsaSignatureMaxLength else {
@@ -72,7 +72,7 @@ public struct Signature: Equatable, Sendable, CustomStringConvertible {
     }
 
     public let data: Data
-    public let type: SignatureType
+    public let type: SigType
 
     public var description: String {
         data.hex
@@ -108,13 +108,13 @@ public struct Signature: Equatable, Sendable, CustomStringConvertible {
         assert(hash.count == Self.hashLength)
         switch type {
         case .ecdsa:
-            return verifyECDSA(signatureData: data, hash: hash, publicKey: publicKey)
+            return verifyECDSA(sigData: data, hash: hash, publicKey: publicKey)
         case .compact:
-            return verifyCompact(signatureData: data, hash: hash, publicKey: publicKey)
+            return verifyCompact(sigData: data, hash: hash, publicKey: publicKey)
         case .recoverable:
-            return internalRecoverPublicKey(signatureData: data, hash: hash) != .none
+            return internalRecoverPublicKey(sigData: data, hash: hash) != .none
         case .schnorr:
-            return verifySchnorr(signatureData: data, hash: hash, publicKey: publicKey)
+            return verifySchnorr(sigData: data, hash: hash, publicKey: publicKey)
         }
     }
 
@@ -127,7 +127,7 @@ public struct Signature: Equatable, Sendable, CustomStringConvertible {
 
     public func recoverPublicKey(messageData: Data) -> PublicKey? {
         precondition(type == .recoverable)
-        guard let publicKeyData = internalRecoverPublicKey(signatureData: data, hash: getMessageHash(messageData: messageData, type: .recoverable)) else {
+        guard let publicKeyData = internalRecoverPublicKey(sigData: data, hash: getMessageHash(messageData: messageData, type: .recoverable)) else {
             return .none
         }
         return PublicKey(publicKeyData)
@@ -228,7 +228,7 @@ public struct Signature: Equatable, Sendable, CustomStringConvertible {
 
 // MARK: - Some helper functions
 
-private func getMessageHash(messageData: Data, type: SignatureType) -> Data {
+private func getMessageHash(messageData: Data, type: SigType) -> Data {
     let newMessageData: Data
     switch type {
     case .ecdsa, .compact, .schnorr:
@@ -264,14 +264,14 @@ private func signRecoverable(hash: Data, secretKey: SecretKey, compressedPublicK
         preconditionFailure()
     }
 
-    var signatureBytes = [UInt8](repeating: 0, count: Signature.recoverableSignatureLength)
+    var sigBytes = [UInt8](repeating: 0, count: Signature.recoverableSignatureLength)
     var rec: Int32 = -1
-    guard secp256k1_ecdsa_recoverable_signature_serialize_compact(eccSigningContext, &signatureBytes[1], &rec, &rsig) != 0 else {
+    guard secp256k1_ecdsa_recoverable_signature_serialize_compact(eccSigningContext, &sigBytes[1], &rec, &rsig) != 0 else {
         preconditionFailure()
     }
 
     precondition(rec >= 0 && rec < UInt8.max - 27 - (compressedPublicKeys ? 4 : 0))
-    signatureBytes[0] = UInt8(27 + rec + (compressedPublicKeys ? 4 : 0))
+    sigBytes[0] = UInt8(27 + rec + (compressedPublicKeys ? 4 : 0))
 
     // Additional verification step to prevent using a potentially corrupted signature
 
@@ -288,24 +288,24 @@ private func signRecoverable(hash: Data, secretKey: SecretKey, compressedPublicK
     guard secp256k1_ec_pubkey_cmp(secp256k1_context_static, &pubkey, &recoveredPubkey) == 0 else {
         preconditionFailure()
     }
-    return Data(signatureBytes)
+    return Data(sigBytes)
 }
 
 /// Recovers public key from signature which also verifies the signature as valid.
-private func internalRecoverPublicKey(signatureData: Data, hash: Data) -> Data? {
-    precondition(signatureData.count == Signature.recoverableSignatureLength) // throw?
+private func internalRecoverPublicKey(sigData: Data, hash: Data) -> Data? {
+    precondition(sigData.count == Signature.recoverableSignatureLength) // throw?
 
     // TODO: Make it so that we respect the data index.
-    assert(signatureData.startIndex == 0)
+    assert(sigData.startIndex == 0)
 
     let hashBytes = [UInt8](hash)
 
-    let recid = Int32((signatureData[0] - 27) & 3)
-    let comp = ((signatureData[0] - 27) & 4) != 0
+    let recid = Int32((sigData[0] - 27) & 3)
+    let comp = ((sigData[0] - 27) & 4) != 0
 
-    let signatureSansPrefix = [UInt8](signatureData.dropFirst())
+    let sigSansPrefix = [UInt8](sigData.dropFirst())
     var sig = secp256k1_ecdsa_recoverable_signature()
-    guard secp256k1_ecdsa_recoverable_signature_parse_compact(secp256k1_context_static, &sig, signatureSansPrefix, recid) != 0 else {
+    guard secp256k1_ecdsa_recoverable_signature_parse_compact(secp256k1_context_static, &sig, sigSansPrefix, recid) != 0 else {
         preconditionFailure() // throw?
     }
 
@@ -345,14 +345,14 @@ private func signCompact(hash: Data, secretKey: SecretKey) -> Data {
     let testCase = UInt32(0)
     var extraEntropy = [UInt8](repeating: 0, count: 32)
     writeLE32(&extraEntropy, testCase)
-    var signature = secp256k1_ecdsa_signature()
+    var sig = secp256k1_ecdsa_signature()
     var counter = UInt32(0)
-    var success = secp256k1_ecdsa_sign(eccSigningContext, &signature, hash, secretKeyBytes, secp256k1_nonce_function_rfc6979, testCase != 0 ? extraEntropy : nil) != 0
+    var success = secp256k1_ecdsa_sign(eccSigningContext, &sig, hash, secretKeyBytes, secp256k1_nonce_function_rfc6979, testCase != 0 ? extraEntropy : nil) != 0
     // Grind for low R
-    while success && !isLowR(signature: &signature) {
+    while success && !isLowR(sig: &sig) {
         counter += 1
         writeLE32(&extraEntropy, counter)
-        success = secp256k1_ecdsa_sign(eccSigningContext,  &signature, hash, secretKeyBytes, secp256k1_nonce_function_rfc6979, extraEntropy) != 0
+        success = secp256k1_ecdsa_sign(eccSigningContext,  &sig, hash, secretKeyBytes, secp256k1_nonce_function_rfc6979, extraEntropy) != 0
     }
     precondition(success)
 
@@ -361,29 +361,29 @@ private func signCompact(hash: Data, secretKey: SecretKey) -> Data {
     guard secp256k1_ec_pubkey_create(eccSigningContext, &pubkey, secretKeyBytes) != 0 else {
         preconditionFailure()
     }
-    guard secp256k1_ecdsa_verify(secp256k1_context_static, &signature, hash, &pubkey) != 0 else {
+    guard secp256k1_ecdsa_verify(secp256k1_context_static, &sig, hash, &pubkey) != 0 else {
         preconditionFailure()
     }
 
-    var signatureBytes = [UInt8](repeating: 0, count: Signature.compactSignatureLength)
-    guard secp256k1_ecdsa_signature_serialize_compact(secp256k1_context_static, &signatureBytes, &signature) != 0 else {
+    var sigBytes = [UInt8](repeating: 0, count: Signature.compactSignatureLength)
+    guard secp256k1_ecdsa_signature_serialize_compact(secp256k1_context_static, &sigBytes, &sig) != 0 else {
         preconditionFailure()
     }
 
-    precondition(signatureBytes.count == Signature.compactSignatureLength)
-    return Data(signatureBytes)
+    precondition(sigBytes.count == Signature.compactSignatureLength)
+    return Data(sigBytes)
 }
 
-private func verifyCompact(signatureData: Data, hash: Data, publicKey: PublicKey) -> Bool {
-    let signatureBytes = [UInt8](signatureData)
+private func verifyCompact(sigData: Data, hash: Data, publicKey: PublicKey) -> Bool {
+    let sigBytes = [UInt8](sigData)
     let hash = [UInt8](hash)
     let publicKeyBytes = [UInt8](publicKey.data)
 
-    precondition(signatureData.count == Signature.compactSignatureLength)
+    precondition(sigData.count == Signature.compactSignatureLength)
     precondition(hash.count == Signature.hashLength)
 
-    var signature = secp256k1_ecdsa_signature()
-    guard secp256k1_ecdsa_signature_parse_compact(secp256k1_context_static, &signature, signatureBytes) != 0 else {
+    var sig = secp256k1_ecdsa_signature()
+    guard secp256k1_ecdsa_signature_parse_compact(secp256k1_context_static, &sig, sigBytes) != 0 else {
         preconditionFailure()
     }
 
@@ -392,7 +392,7 @@ private func verifyCompact(signatureData: Data, hash: Data, publicKey: PublicKey
         preconditionFailure()
     }
 
-    return secp256k1_ecdsa_verify(secp256k1_context_static, &signature, hash, &pubkey) != 0
+    return secp256k1_ecdsa_verify(secp256k1_context_static, &sig, hash, &pubkey) != 0
 }
 
 // MARK: - Schnorr
@@ -430,13 +430,13 @@ private func signSchnorr(hash: Data, secretKey: SecretKey, additionalEntropy: Da
     return Data(sigOut)
 }
 
-private func verifySchnorr(signatureData: Data, hash: Data, publicKey: PublicKey) -> Bool {
+private func verifySchnorr(sigData: Data, hash: Data, publicKey: PublicKey) -> Bool {
 
-    precondition(signatureData.count == Signature.schnorrSignatureLength)
+    precondition(sigData.count == Signature.schnorrSignatureLength)
     precondition(hash.count == Signature.hashLength)
     // guard !publicKeyData.isEmpty else { return false }
 
-    let signatureBytes = [UInt8](signatureData)
+    let sigBytes = [UInt8](sigData)
     let publicKeyBytes = [UInt8](publicKey.xOnlyData)
     let hashBytes = [UInt8](hash)
 
@@ -444,7 +444,7 @@ private func verifySchnorr(signatureData: Data, hash: Data, publicKey: PublicKey
     guard secp256k1_xonly_pubkey_parse(secp256k1_context_static, &xonlyPubkey, publicKeyBytes) != 0 else {
         return false
     }
-    return secp256k1_schnorrsig_verify(secp256k1_context_static, signatureBytes, hashBytes, hashBytes.count, &xonlyPubkey) != 0
+    return secp256k1_schnorrsig_verify(secp256k1_context_static, sigBytes, hashBytes, hashBytes.count, &xonlyPubkey) != 0
 }
 
 // MARK: - ECDSA
@@ -460,25 +460,25 @@ private func signECDSA(hash: Data, secretKey: SecretKey, requireLowR: Bool = tru
     let testCase = UInt32(0)
     var extraEntropy = [UInt8](repeating: 0, count: 32)
     writeLE32(&extraEntropy, testCase)
-    var signature = secp256k1_ecdsa_signature()
+    var sig = secp256k1_ecdsa_signature()
     var counter = UInt32(0)
-    var success = secp256k1_ecdsa_sign(eccSigningContext, &signature, hashBytes, secretKeyBytes, secp256k1_nonce_function_rfc6979, (requireLowR && testCase != 0) ? extraEntropy : nil) != 0
+    var success = secp256k1_ecdsa_sign(eccSigningContext, &sig, hashBytes, secretKeyBytes, secp256k1_nonce_function_rfc6979, (requireLowR && testCase != 0) ? extraEntropy : nil) != 0
     // Grind for low R
-    while (success && !isLowR(signature: &signature) && requireLowR) {
+    while (success && !isLowR(sig: &sig) && requireLowR) {
         counter += 1
         writeLE32(&extraEntropy, counter)
-        success = secp256k1_ecdsa_sign(eccSigningContext,  &signature, hashBytes, secretKeyBytes, secp256k1_nonce_function_rfc6979, extraEntropy) != 0
+        success = secp256k1_ecdsa_sign(eccSigningContext,  &sig, hashBytes, secretKeyBytes, secp256k1_nonce_function_rfc6979, extraEntropy) != 0
     }
     precondition(success)
 
-    var signatureBytes = [UInt8](repeating: 0, count: Signature.ecdsaSignatureMaxLength)
-    var signatureBytesCount = signatureBytes.count
-    guard secp256k1_ecdsa_signature_serialize_der(secp256k1_context_static, &signatureBytes, &signatureBytesCount, &signature) != 0 else {
+    var sigBytes = [UInt8](repeating: 0, count: Signature.ecdsaSignatureMaxLength)
+    var sigBytesCount = sigBytes.count
+    guard secp256k1_ecdsa_signature_serialize_der(secp256k1_context_static, &sigBytes, &sigBytesCount, &sig) != 0 else {
         preconditionFailure()
     }
 
     // Resize (shrink) if necessary
-    let signatureShrunken = Data(signatureBytes[signatureBytes.startIndex ..< signatureBytes.startIndex.advanced(by: signatureBytesCount)])
+    let sigShrunken = Data(sigBytes[sigBytes.startIndex ..< sigBytes.startIndex.advanced(by: sigBytesCount)])
 
     // Additional verification step to prevent using a potentially corrupted signature
     var pubkey = secp256k1_pubkey()
@@ -486,43 +486,43 @@ private func signECDSA(hash: Data, secretKey: SecretKey, requireLowR: Bool = tru
         preconditionFailure()
     }
 
-    guard secp256k1_ecdsa_verify(secp256k1_context_static, &signature, hashBytes, &pubkey) != 0 else {
+    guard secp256k1_ecdsa_verify(secp256k1_context_static, &sig, hashBytes, &pubkey) != 0 else {
         preconditionFailure()
     }
 
-    return signatureShrunken
+    return sigShrunken
 }
 
 /// Verifies a signature using a public key.
-private func verifyECDSA(signatureData: Data, hash: Data, publicKey: PublicKey) -> Bool {
+private func verifyECDSA(sigData: Data, hash: Data, publicKey: PublicKey) -> Bool {
 
     // TODO: Verify the assumption below
     // guard !publicKey.data.isEmpty else { return false }
 
-    let signatureBytes = [UInt8](signatureData)
+    let sigBytes = [UInt8](sigData)
     let publicKeyBytes = [UInt8](publicKey.data)
     let hashBytes = [UInt8](hash)
 
-    var signature = secp256k1_ecdsa_signature()
-    guard ECCHelper.ecdsa_signature_parse_der_lax(&signature, signatureBytes, signatureBytes.count) != 0 else {
+    var sig = secp256k1_ecdsa_signature()
+    guard ECCHelper.ecdsa_signature_parse_der_lax(&sig, sigBytes, sigBytes.count) != 0 else {
         preconditionFailure()
     }
 
-    var signatureNormalized = secp256k1_ecdsa_signature()
-    secp256k1_ecdsa_signature_normalize(secp256k1_context_static, &signatureNormalized, &signature)
+    var sigNormalized = secp256k1_ecdsa_signature()
+    secp256k1_ecdsa_signature_normalize(secp256k1_context_static, &sigNormalized, &sig)
 
     var pubkey = secp256k1_pubkey()
     guard secp256k1_ec_pubkey_parse(secp256k1_context_static, &pubkey, publicKeyBytes, publicKeyBytes.count) != 0 else {
         preconditionFailure()
     }
 
-    return secp256k1_ecdsa_verify(secp256k1_context_static, &signatureNormalized, hashBytes, &pubkey) != 0
+    return secp256k1_ecdsa_verify(secp256k1_context_static, &sigNormalized, hashBytes, &pubkey) != 0
 }
 
 // Check that the sig has a low R value and will be less than 71 bytes
-private func isLowR(signature: inout secp256k1_ecdsa_signature) -> Bool {
+private func isLowR(sig: inout secp256k1_ecdsa_signature) -> Bool {
     var compactSig = [UInt8](repeating: 0, count: 64)
-    secp256k1_ecdsa_signature_serialize_compact(secp256k1_context_static, &compactSig, &signature);
+    secp256k1_ecdsa_signature_serialize_compact(secp256k1_context_static, &compactSig, &sig);
 
     // In DER serialization, all values are interpreted as big-endian, signed integers. The highest bit in the integer indicates
     // its signed-ness; 0 is positive, 1 is negative. When the value is interpreted as a negative integer, it must be converted
@@ -532,21 +532,21 @@ private func isLowR(signature: inout secp256k1_ecdsa_signature) -> Bool {
 }
 
 private func internalIsLowS(compactSignatureData: Data) -> Bool {
-    let signatureBytes = [UInt8](compactSignatureData)
-    var signature = secp256k1_ecdsa_signature()
-    guard secp256k1_ecdsa_signature_parse_compact(secp256k1_context_static, &signature, signatureBytes) != 0 else {
+    let sigBytes = [UInt8](compactSignatureData)
+    var sig = secp256k1_ecdsa_signature()
+    guard secp256k1_ecdsa_signature_parse_compact(secp256k1_context_static, &sig, sigBytes) != 0 else {
         preconditionFailure()
     }
-    let normalizationOccurred = secp256k1_ecdsa_signature_normalize(secp256k1_context_static, .none, &signature)
+    let normalizationOccurred = secp256k1_ecdsa_signature_normalize(secp256k1_context_static, .none, &sig)
     return normalizationOccurred == 0
 }
 
 private func internalIsLowS(laxSignatureData: Data) -> Bool {
-    let signatureBytes = [UInt8](laxSignatureData)
-    var signature = secp256k1_ecdsa_signature()
-    guard ecdsa_signature_parse_der_lax(&signature, signatureBytes, signatureBytes.count) != 0 else {
+    let sigBytes = [UInt8](laxSignatureData)
+    var sig = secp256k1_ecdsa_signature()
+    guard ecdsa_signature_parse_der_lax(&sig, sigBytes, sigBytes.count) != 0 else {
         preconditionFailure()
     }
-    let normalizationOccurred = secp256k1_ecdsa_signature_normalize(secp256k1_context_static, .none, &signature)
+    let normalizationOccurred = secp256k1_ecdsa_signature_normalize(secp256k1_context_static, .none, &sig)
     return normalizationOccurred == 0
 }

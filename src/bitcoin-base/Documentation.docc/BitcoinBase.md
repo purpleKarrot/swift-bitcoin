@@ -15,7 +15,7 @@ _BitcoinBase_ basic usage:
 import BitcoinBase
 
 let previousTx: BitcoinTx = …
-let prevout = previousTx.outputs[0]
+let prevout = previousTx.outs[0]
 let outpoint = previousTx.outpoint(0)
 
 // Create a new transaction spending from the previous transaction's outpoint.
@@ -23,8 +23,8 @@ let unsignedInput = TxInput(outpoint: outpoint)
 
 // Specify the transaction's output. We'll leave 1000 sats on the table to tip miners. We'll re-use the origin address for simplicity.
 let unsignedTx = BitcoinTx(
-    inputs: [unsignedInput],
-    outputs: [
+    ins: [unsignedInput],
+    outs: [
         .init(value: 49_99_999_000, script: .init([
             .dup,
             .hash160,
@@ -35,7 +35,7 @@ let unsignedTx = BitcoinTx(
     ])
 
 // Sign the transaction by first calculating the signature hash.
-let sighash = unsignedTx.signatureHash(sighashType: .all, inputIndex: 0, prevout: prevout, scriptCode: prevout.script.data)
+let sighash = unsignedTx.j(sighashType: .all, inIndex: 0, prevout: prevout, scriptCode: prevout.script.data)
 …
 ```
 

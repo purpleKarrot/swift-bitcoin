@@ -7,13 +7,13 @@ public struct TxOut: Equatable, Sendable {
     /// - Parameters:
     ///   - value: A Satoshi amount represented by this output.
     ///   - script: The script encumbering the specified value.
-    public init(value: BitcoinAmount, script: BitcoinScript = .empty) {
+    public init(value: SatoshiAmount, script: BitcoinScript = .empty) {
         self.value = value
         self.script = script
     }
 
     /// The amount in _satoshis_ encumbered by this output.
-    public var value: BitcoinAmount
+    public var value: SatoshiAmount
 
     /// The script that locks this output.
     public var script: BitcoinScript
@@ -23,11 +23,11 @@ public struct TxOut: Equatable, Sendable {
 extension TxOut {
 
     package init?(_ data: Data) {
-        guard data.count > MemoryLayout<BitcoinAmount>.size else {
+        guard data.count > MemoryLayout<SatoshiAmount>.size else {
             return nil
         }
         var data = data
-        let value = data.withUnsafeBytes { $0.loadUnaligned(as: BitcoinAmount.self) }
+        let value = data.withUnsafeBytes { $0.loadUnaligned(as: SatoshiAmount.self) }
         data = data.dropFirst(MemoryLayout.size(ofValue: value))
         guard let script = BitcoinScript(prefixedData: data) else {
             return nil
@@ -51,6 +51,6 @@ extension TxOut {
     }
 
     static var valueSize: Int {
-        MemoryLayout<BitcoinAmount>.size
+        MemoryLayout<SatoshiAmount>.size
     }
 }
