@@ -65,6 +65,6 @@ enum ScriptError: Error {
          emptySchnorrSignature,
          disallowedNoOp,
          invalidCheckSigAddArgument,
-         minimumTransactionVersionRequired,
+         minimumTxVersionRequired,
          sequenceLockTimeDisabled
 }

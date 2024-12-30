@@ -5,28 +5,28 @@ import Foundation
 /// Use a single `ScriptContext` instance to run multiple scripts sequentially.
 public struct ScriptContext {
 
-    init?(_ config: ScriptConfig = .standard, transaction: BitcoinTransaction, inputIndex: Int = 0, prevout: TransactionOutput) {
-        guard transaction.inputs.count > 0, inputIndex < transaction.inputs.count else {
+    init?(_ config: ScriptConfig = .standard, tx: BitcoinTx, txIn: Int = 0, prevout: TxOut) {
+        guard tx.ins.count > 0, txIn < tx.ins.count else {
             return nil
         }
-        self.init(config, transaction: transaction, inputIndex: inputIndex, prevouts: [prevout])
+        self.init(config, tx: tx, txIn: txIn, prevouts: [prevout])
     }
 
-    public init(_ config: ScriptConfig = .standard, transaction: BitcoinTransaction = .dummy, inputIndex: Int = 0, prevouts: [TransactionOutput] = []) {
+    public init(_ config: ScriptConfig = .standard, tx: BitcoinTx = .dummy, txIn: Int = 0, prevouts: [TxOut] = []) {
         self.config = config
-        self.transaction = transaction
-        self.inputIndex = inputIndex
+        self.tx = tx
+        self.txIn = txIn
         self.prevouts = prevouts
         self.sigVersion = .base
     }
 
     public let config: ScriptConfig
-    public let transaction: BitcoinTransaction
-    public let prevouts: [TransactionOutput]
+    public let tx: BitcoinTx
+    public let prevouts: [TxOut]
     public private(set) var sigVersion: SigVersion
 
     // Internal state
-    public internal(set) var inputIndex: Int {
+    public internal(set) var txIn: Int {
         didSet {
             reset()
         }
@@ -64,8 +64,8 @@ public struct ScriptContext {
     /// We keep the sighash cache instance inbetween resets / runs / input index updates.
     var sighashCache = SighashCache()
 
-    var prevout: TransactionOutput {
-        prevouts[inputIndex]
+    var prevout: TxOut {
+        prevouts[txIn]
     }
 
     var currentOp: ScriptOperation {
@@ -109,7 +109,7 @@ public struct ScriptContext {
         self.tapLeafHash = tapLeafHash
 
         if sigVersion == .witnessV1 {
-            if let witness = transaction.inputs[inputIndex].witness {
+            if let witness = tx.ins[txIn].witness {
                 sigopBudget = BitcoinScript.sigopBudgetBase + witness.size
             } else {
                 sigopBudget = BitcoinScript.sigopBudgetBase
@@ -167,7 +167,7 @@ public struct ScriptContext {
 
     /// Except stack, cache and input index
     private mutating func reset() {
-        let copy = ScriptContext(config, transaction: transaction, prevouts: prevouts)
+        let copy = ScriptContext(config, tx: tx, prevouts: prevouts)
         programCounter = copy.programCounter
         operationIndex = copy.operationIndex
         nonPushOperations = copy.nonPushOperations
@@ -180,7 +180,7 @@ public struct ScriptContext {
     }
 
     /// Support for `OP_CHECKSIG` and `OP_CHECKSIGVERIFY`. Legacy scripts only.
-    func getScriptCode(signatures: [Data]) throws -> Data {
+    func getScriptCode(sigs: [Data]) throws -> Data {
         precondition(sigVersion == .base)
         var scriptData = script.data
         if let codesepOffset = lastCodeSeparatorOffset {
@@ -196,7 +196,7 @@ public struct ScriptContext {
             }
 
             var operationContainsSignature = false
-            for sig in signatures {
+            for sig in sigs {
                 if !sig.isEmpty, operation == .pushBytes(sig) {
                     operationContainsSignature = true
                     if config.contains(.constantScriptCode) {

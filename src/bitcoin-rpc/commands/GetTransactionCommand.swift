@@ -9,13 +9,13 @@ public struct GetTransactionCommand: Sendable {
     internal struct Output: JSONStringConvertible {
 
         struct Input: Encodable {
-            let transaction: String
+            let tx: String
             let output: Int
         }
 
         struct Output: Encodable {
             let raw: String
-            let amount: BitcoinAmount
+            let amount: SatoshiAmount
             let script: String
         }
 
@@ -35,22 +35,22 @@ public struct GetTransactionCommand: Sendable {
 
         precondition(request.method == Self.method)
 
-        guard case let .list(objects) = RPCObject(request.params), let first = objects.first, case let .string(transactionIDHex) = first else {
-            throw RPCError(.invalidParams("transactionID"), description: "TransactionID (hex string) is required.")
+        guard case let .list(objects) = RPCObject(request.params), let first = objects.first, case let .string(txIDHex) = first else {
+            throw RPCError(.invalidParams("txID"), description: "TxID (hex string) is required.")
         }
-        guard let transactionID = Data(hex: transactionIDHex), transactionID.count == BitcoinTransaction.idLength else {
-            throw RPCError(.invalidParams("transactionID"), description: "TransactionID hex encoding or length is invalid.")
+        guard let txID = Data(hex: txIDHex), txID.count == BitcoinTx.idLength else {
+            throw RPCError(.invalidParams("txID"), description: "TxID hex encoding or length is invalid.")
         }
-        guard let transaction = await blockchainService.getTransaction(transactionID) else {
-            throw RPCError(.invalidParams("transactionID"), description: "Transaction not found.")
+        guard let tx = await blockchainService.getTx(txID) else {
+            throw RPCError(.invalidParams("txID"), description: "Transaction not found.")
         }
-        let inputs = transaction.inputs.map {
+        let ins = tx.ins.map {
             Output.Input(
-                transaction: $0.outpoint.transactionID.hex,
-                output: $0.outpoint.outputIndex
+                tx: $0.outpoint.txID.hex,
+                output: $0.outpoint.txOut
             )
         }
-        let outputs = transaction.outputs.map {
+        let outs = tx.outs.map {
             Output.Output(
                 raw: $0.data.hex,
                 amount: $0.value,
@@ -58,10 +58,10 @@ public struct GetTransactionCommand: Sendable {
             )
         }
         let result = Output(
-            id: transaction.id.hex,
-            witnessID: transaction.witnessID.hex,
-            inputs: inputs,
-            outputs: outputs
+            id: tx.id.hex,
+            witnessID: tx.witnessID.hex,
+            inputs: ins,
+            outputs: outs
         )
         return .init(id: request.id, result: JSONObject.string(result.description))
     }

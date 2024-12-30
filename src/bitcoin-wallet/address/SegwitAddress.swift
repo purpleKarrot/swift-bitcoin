@@ -55,7 +55,7 @@ public struct SegwitAddress: BitcoinAddress {
         }
     }
 
-    public func output(_ value: BitcoinAmount) -> TransactionOutput {
+    public func out(_ value: SatoshiAmount) -> TxOut {
         .init(value: value, script: script)
     }
 }

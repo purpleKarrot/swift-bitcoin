@@ -288,17 +288,17 @@ final class BlockSyncTests {
         let mBA10_block = try #require(await bob.popMessage(peerA))
         #expect(mBA10_block.command == .block)
 
-        let bobBlock1 = try #require(TransactionBlock(mBA10_block.payload))
-        #expect(bobBlock1.transactions.count == 1)
+        let bobBlock1 = try #require(TxBlock(mBA10_block.payload))
+        #expect(bobBlock1.txs.count == 1)
 
         // Bob --(block)->> …
         let mBA11_block = try #require(await bob.popMessage(peerA))
         #expect(mBA11_block.command == .block)
 
-        let bobBlock2 = try #require(TransactionBlock(mBA11_block.payload))
-        #expect(bobBlock2.transactions.count == 1)
+        let bobBlock2 = try #require(TxBlock(mBA11_block.payload))
+        #expect(bobBlock2.txs.count == 1)
 
-        let aliceBlocksBefore = await aliceChain.transactions.count
+        let aliceBlocksBefore = await aliceChain.txs.count
         #expect(aliceBlocksBefore == 1)
 
         // … --(block)->> Alice
@@ -306,7 +306,7 @@ final class BlockSyncTests {
         try await alice.processMessage(mBA10_block, from: peerB)
         try await alice.processMessage(mBA11_block, from: peerB)
 
-        var aliceBlocksAfter = await aliceChain.transactions.count
+        var aliceBlocksAfter = await aliceChain.txs.count
         #expect(aliceBlocksAfter == 3)
 
         // Alice --(getdata)->> …
@@ -323,13 +323,13 @@ final class BlockSyncTests {
         let mBA12_block = try #require(await bob.popMessage(peerA))
         #expect(mBA12_block.command == .block)
 
-        let bobBlock3 = try #require(TransactionBlock(mBA12_block.payload))
-        #expect(bobBlock3.transactions.count == 1)
+        let bobBlock3 = try #require(TxBlock(mBA12_block.payload))
+        #expect(bobBlock3.txs.count == 1)
 
         // … --(block)->> Alice
         try await alice.processMessage(mBA12_block, from: peerB)
 
-        aliceBlocksAfter = await aliceChain.transactions.count
+        aliceBlocksAfter = await aliceChain.txs.count
         #expect(aliceBlocksAfter == 4)
 
         // No Response

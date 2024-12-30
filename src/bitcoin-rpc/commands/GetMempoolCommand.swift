@@ -8,7 +8,7 @@ public struct GetMempoolCommand: Sendable {
 
     internal struct Output: JSONStringConvertible {
         let size: Int
-        let transactions: [String]
+        let txs: [String]
     }
 
     public init(blockchainService: BlockchainService) {
@@ -24,7 +24,7 @@ public struct GetMempoolCommand: Sendable {
         let mempool = await blockchainService.mempool
         let result = Output(
             size: mempool.count,
-            transactions: mempool.map(\.id.hex)
+            txs: mempool.map(\.id.hex)
         )
         return .init(id: request.id, result: JSONObject.string(result.description))
     }

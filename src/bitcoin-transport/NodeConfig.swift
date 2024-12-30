@@ -3,7 +3,7 @@ import BitcoinBase
 
 public struct NodeConfig : Sendable {
 
-    public init(network: NodeNetwork = .regtest, version: ProtocolVersion = .latest, services: ProtocolServices = .all, maxInTransitBlocks: Int = 16, feeFilterRate: BitcoinAmount = 1) {
+    public init(network: NodeNetwork = .regtest, version: ProtocolVersion = .latest, services: ProtocolServices = .all, maxInTransitBlocks: Int = 16, feeFilterRate: SatoshiAmount = 1) {
         self.network = network
         self.version = version
         self.services = services
@@ -18,7 +18,7 @@ public struct NodeConfig : Sendable {
     public let services: ProtocolServices
 
     public let maxInTransitBlocks: Int
-    public let feeFilterRate: BitcoinAmount
+    public let feeFilterRate: SatoshiAmount
 
     @usableFromInline static let `default` = Self()
 }

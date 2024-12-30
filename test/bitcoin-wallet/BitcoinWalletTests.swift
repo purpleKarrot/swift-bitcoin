@@ -23,14 +23,14 @@ struct BitcoinWalletTests {
 
         let message = "Hello, Bitcoin!"
         let messageData = try #require(message.data(using: .utf8))
-        let signature = Signature(messageData: messageData, secretKey: secretKey2, type: .recoverable, recoverCompressedKeys: metadata.compressedPublicKeys)
+        let sig = Signature(messageData: messageData, secretKey: secretKey2, type: .recoverable, recoverCompressedKeys: metadata.compressedPublicKeys)
 
-        #expect(signature.base64 == "IN97K44jABXPVVQ5dnPo0AcLpmG/Q0b73Yxr6JQvIFtPJJQhshb4NJ2nHjqtRhKIUNGnFGr+tlHxzoOw6xpmJ5I=")
+        #expect(sig.base64 == "IN97K44jABXPVVQ5dnPo0AcLpmG/Q0b73Yxr6JQvIFtPJJQhshb4NJ2nHjqtRhKIUNGnFGr+tlHxzoOw6xpmJ5I=")
 
         let address = "miueyHbQ33FDcjCYZpVJdC7VBbaVQzAUg5"
         // Decode P2PKH address
         let addressDecoded = try #require(LegacyAddress(address))
-        let result = if let publicKey = signature.recoverPublicKey(messageData: messageData) {
+        let result = if let publicKey = sig.recoverPublicKey(messageData: messageData) {
             Data(Hash160.hash(data: publicKey.data)) == addressDecoded.hash
         } else {
             false

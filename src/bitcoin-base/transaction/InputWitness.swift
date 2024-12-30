@@ -1,6 +1,6 @@
 import Foundation
 
-/// Witness data associated with a particular ``TransactionInput``.
+/// Witness data associated with a particular ``TxIn``.
 ///
 /// Refer to BIP141 for more information.
 public struct InputWitness: Equatable, Sendable {
@@ -43,7 +43,7 @@ extension InputWitness {
         self.elements = elements
     }
 
-    /// Used by ``BitcoinTransaction/data`` to support the serialization format specified in BIP144.
+    /// Used by ``BitcoinTx/data`` to support the serialization format specified in BIP144.
     var data: Data {
         var ret = Data(count: size)
         let offset = ret.addData(Data(varInt: UInt64(elements.count)))

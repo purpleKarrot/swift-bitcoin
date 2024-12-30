@@ -25,11 +25,11 @@ struct ScriptTests {
             .init([.init([0x33 /* or 51 (?) */])], 0, .empty, .init([.zero, .pushBytes(Data([0x20, 0x6e, 0x34, 0x0b, 0x9c, 0xff, 0xb3, 0x7a, 0x98, 0x9c, 0xa5, 0x44, 0xe6, 0xbb, 0x78, 0x0a, 0x2c, 0x78, 0x90, 0x1d, 0x3f, 0xb3, 0x37, 0x38, 0x76, 0x85, 0x11, 0xa3, 0x06, 0x17, 0xaf, 0xa0, 0x1d]))]), [.payToScriptHash, .witness], false, [.witnessProgramWrongLength /* WITNESS_PROGRAM_MISMATCH */], "Witness script hash mismatch"),
     ])
     func allVectors(test: TestVector) throws {
-        let txCredit = BitcoinTransaction(
-            inputs: [
+        let txCredit = BitcoinTx(
+            ins: [
                 .init(outpoint: .coinbase, script: .init([.zero, .zero])),
             ],
-            outputs: [
+            outs: [
                 .init(value: test.amount, script: test.scriptPubKey)
             ]
         )
@@ -40,21 +40,21 @@ struct ScriptTests {
             InputWitness?.none
         }
 
-        let txSpend = BitcoinTransaction(
-            inputs: [
+        let txSpend = BitcoinTx(
+            ins: [
                 .init(outpoint: txCredit.outpoint(0), script: test.scriptSig, witness: witness),
             ],
-            outputs: [
-                .init(value: txCredit.outputs[0].value)
+            outs: [
+                .init(value: txCredit.outs[0].value)
             ]
         )
-        let result = txSpend.verifyScript(prevouts: [txCredit.outputs[0]], config: test.flags)
+        let result = txSpend.verifyScript(prevouts: [txCredit.outs[0]], config: test.flags)
         if test.evalTrue {
             #expect(result)
         } else if test.expectedErrors.isEmpty {
             #expect(!result)
         } else {
-            var context = ScriptContext(test.flags, transaction: txSpend, inputIndex: 0, prevouts: [txCredit.outputs[0]])
+            var context = ScriptContext(test.flags, tx: txSpend, txIn: 0, prevouts: [txCredit.outs[0]])
             #expect {
                 try txSpend.verifyScript(&context)
             } throws: { error in
@@ -89,7 +89,7 @@ struct ScriptTests {
 
         init(
             _ witness: [Data]?,
-            _ amount: BitcoinAmount,
+            _ amount: SatoshiAmount,
             _ scriptSig: BitcoinScript,
             _ scriptPubKey: BitcoinScript,
             _ flags: ScriptConfig,
@@ -108,7 +108,7 @@ struct ScriptTests {
         }
 
         let witness: [Data]?
-        let amount: BitcoinAmount
+        let amount: SatoshiAmount
         let scriptSig: BitcoinScript
         let scriptPubKey: BitcoinScript
         let flags: ScriptConfig

@@ -19,7 +19,7 @@ public enum InventoryType: Int {
     case compactBlock = 4
 
     /// `MSG_WITNESS_TX`: Hash of a transaction with witness data. See BIP144 for more info.
-    case witnessTransaction = 0x40000001
+    case witnessTx = 0x40000001
 
     /// `MSG_WITNESS_BLOCK`: Hash of a block with witness data. See BIP144 for more info.
     case witnessBlock = 0x40000002

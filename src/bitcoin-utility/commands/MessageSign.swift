@@ -28,8 +28,8 @@ struct MessageSign: ParsableCommand {
         guard let messageData = message.data(using: .utf8) else {
             throw ValidationError("Invalid UTF8-encoded message: message")
         }
-        let signature = Signature(messageData: messageData, secretKey: secretKey, type: .recoverable, recoverCompressedKeys: metadata.compressedPublicKeys)
-        let result = signature.base64
+        let sig = Signature(messageData: messageData, secretKey: secretKey, type: .recoverable, recoverCompressedKeys: metadata.compressedPublicKeys)
+        let result = sig.base64
         print(result)
         destroyECCSigningContext()
     }

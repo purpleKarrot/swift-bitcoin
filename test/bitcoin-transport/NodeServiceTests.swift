@@ -334,16 +334,16 @@ final class NodeServiceTests {
         let messageSH10_block = try #require(await satoshi.popMessage(halPeer))
         #expect(messageSH10_block.command == .block)
 
-        let satoshiBlock = try #require(TransactionBlock(messageSH10_block.payload))
-        #expect(satoshiBlock.transactions.count == 1)
+        let satoshiBlock = try #require(TxBlock(messageSH10_block.payload))
+        #expect(satoshiBlock.txs.count == 1)
 
-        let halBlocksBefore = await halChain.transactions.count
+        let halBlocksBefore = await halChain.txs.count
         #expect(halBlocksBefore == 1)
 
         // … --(block)->> Hal
         try await hal.processMessage(messageSH10_block, from: satoshiPeer)
 
-        let halBlocksAfter = await halChain.transactions.count
+        let halBlocksAfter = await halChain.txs.count
         #expect(halBlocksAfter == 2)
 
         // No Response
