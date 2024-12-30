@@ -35,7 +35,7 @@ let unsignedTx = BitcoinTx(
     ])
 
 // Sign the transaction by first calculating the signature hash.
-let sighash = unsignedTx.j(sighashType: .all, inIndex: 0, prevout: prevout, scriptCode: prevout.script.data)
+let sighash = unsignedTx.signHash(sighashType: .all, txIn: 0, prevout: prevout, scriptCode: prevout.script.data)
 …
 ```
 

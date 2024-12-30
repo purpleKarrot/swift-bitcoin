@@ -86,7 +86,7 @@ public class TxSigner {
 
     /// Signs a single key input.
     /// - Parameters:
-    ///   - inIndex: A valid input index.
+    ///   - txIn: A valid input index.
     ///   - secretKey: A secret key for signing.
     /// - Returns: A transaction with the signed input.
     @discardableResult
