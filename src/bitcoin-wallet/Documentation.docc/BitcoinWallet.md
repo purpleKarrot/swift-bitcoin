@@ -13,6 +13,44 @@ Use BitcoinWallet to generate addresses from public keys or scripts and to decod
 
 Create private (_xpriv_) and public (_xpub_) master keys from BIP32 seeds and use them to derive output keys. Manage BIP39 mnemonic phrases in multiple languages.
 
+Sample code: _Bob sends 50 satoshis to Alice_.
+
+```swift
+// Bob gets paid.
+let bobsSecretKey = SecretKey()
+let bobsAddress = LegacyAddress(bobsSecretKey)
+
+// The funding transaction, sending money to Bob.
+let fundingTx = BitcoinTx(ins: [.init(outpoint: .coinbase)], outs: [
+    bobsAddress.out(100) // 100 satoshis
+])
+
+// Alice generates an address to give Bob.
+
+let alicesSecretKey = SecretKey()
+let alicesAddress = LegacyAddress(alicesSecretKey)
+
+// Bob constructs, sings and broadcasts a transaction which pays Alice at her address.
+
+// The spending transaction by which Bob sends money to Alice
+let spendingTx = BitcoinTx(ins: [
+    .init(outpoint: fundingTx.outpoint(0)),
+], outs: [
+    alicesAddress.out(50) // 50 satoshis
+])
+
+// Sign the spending transaction.
+let prevouts = [fundingTx.outs[0]]
+let signer = TxSigner(
+    tx: spendingTx, prevouts: prevouts, sighashType: .all
+)
+let signedTx = signer.sign(txIn: 0, with: bobsSecretKey)
+
+// Verify transaction signatures.
+let result = signedTx.verifyScript(prevouts: prevouts)
+#expect(result)
+```
+
 ## Topics
 
 ### Addresses

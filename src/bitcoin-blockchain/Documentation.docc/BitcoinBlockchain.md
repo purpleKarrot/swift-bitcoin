@@ -15,10 +15,7 @@ _BitcoinBlockchain_ usage example:
 import BitcoinBlockchain
 
 // Instantiate a fresh Bitcoin service (regtest).
-let service = BlockchainService()
-
-// Create the genesis block.
-await service.createGenesisBlock()
+let blockchain = BlockchainService()
 
 // Mine 100 blocks so block 1's coinbase output reaches maturity.
 for _ in 0 ..< 100 {
@@ -27,28 +24,25 @@ for _ in 0 ..< 100 {
 …
 
 // Submit the signed transaction to the mempool.
-await service.addTx(signedTx)
+await blockchain.addTx(signedTx)
 
 // The mempool should now contain our transaction.
-let mempoolBefore = await service.mempool.count
-#expect(mempoolBefore == 1)
+#expect(await blockchain.mempool.count == 1)
 
 // Let's mine another block to confirm our transaction.
 
 // In this case we can use the address we created before.
 
 // Minde to the public key hash
-await service.generateTo(publicKey)
+await blockchain.generateTo(publicKey)
 
 // The mempool should now be empty.
-let mempoolAfter = await service.mempool.count
-#expect(mempoolAfter == 0)
+#expect(await blockchain.mempool.count == 0)
 …
 
-let blocks = await service.headers.count
-#expect(blocks == 102)
+#expect(await blockchain.blocks.count == 102)
 
-let lastBlock = await service.txs.last!
+let lastBlock = await blockchain.txs.last!
 // Verify our transaction was confirmed in a block.
 
 #expect(lastBlock[1] == signedTx)
@@ -59,6 +53,9 @@ let lastBlock = await service.txs.last!
 
 ### Essentials
 
+- ``TxBlock``
+- ``BlockchainService``
+- ``ConsensusParams``
 
 ## See Also
 

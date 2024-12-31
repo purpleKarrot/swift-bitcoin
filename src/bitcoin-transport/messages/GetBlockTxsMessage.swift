@@ -1,6 +1,6 @@
 import Foundation
 
-/// A `BlockTransactionsRequest`  (i.e. ``GetBlockTransactionsMessage``) structure is used to list transaction indexes in a block being requested.
+/// BIP152: A `BlockTransactionsRequest` structure is used to list transaction indexes in a block being requested.
 ///
 /// The `getblocktxn` message is defined as a message containing a serialized `BlockTransactionsRequest` message and `pchCommand == "getblocktxn"`.
 ///

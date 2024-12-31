@@ -18,7 +18,7 @@ public struct BitcoinTx: Equatable, Sendable {
     /// - Parameters:
     ///   - version: Defaults fo version 1. Version 2 can be specified to unlock per input relative lock times.
     ///   - locktime: The absolute lock time by which this transaction will be able to be mined. It can be specified as a block height or a calendar date. Disabled by default.
-    ///   - ins The coins this transaction will be spending.
+    ///   - ins: The coins this transaction will be spending.
     ///   - outs: The new coins this transaction will create.
     public init(version: TxVersion = .v1, locktime: TxLocktime = .disabled, ins: [TxIn], outs: [TxOut]) {
         self.version = version

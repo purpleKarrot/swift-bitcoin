@@ -4,8 +4,7 @@ import BitcoinBase
 
 public typealias BlockID = Data
 
-/// A block's header.
-/// A block of transactions.
+/// A block of transactions. It may be interpreted as a just a block header when body of transactions is empty. It may also include additional contextual information such as the block's height within the blockchain.
 public struct TxBlock: Equatable, Sendable {
 
     // MARK: - Initializers

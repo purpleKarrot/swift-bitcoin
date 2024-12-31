@@ -2,7 +2,7 @@
 
 Build the Swift Bitcoin library and executables using the Swift Toolchain or Docker.
 
-# Overview
+## Overview
 
 To build Swift Bitcoin you'll either need Docker or a working copy of the Swift Toolchain installed on your system. On Mac you can also build and run directly from Xcode.
 
