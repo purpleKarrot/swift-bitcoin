@@ -2,7 +2,7 @@
 
 Start a Bitcoin node service, query it and control it with the command line utility.
 
-# Overview
+## Overview
 
 Swift Bitcoin comes with two executables:
 

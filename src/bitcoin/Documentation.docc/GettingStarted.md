@@ -2,7 +2,7 @@
 
 Swift Bitcoin let's you integrate the different capabilities of the Bitcoin protocol into your own product.
 
-# Overview
+## Overview
 
 To start using Swift Bitcoin as a library just add it as a dependency to your package manifest.
 
@@ -32,21 +32,18 @@ Let's start by generating a key pair and derive an address for our test.
 // Generate a secret key, corresponding public key, hash and address.
 let secretKey = SecretKey()
 let publicKey = secretKey.publicKey
-let address = BitcoinAddress(publicKey)
+let address = LegacyAddress(publicKey)
 ```
 
-Prepare the Bitcoin service.
+Prepare the Blockchain service.
 
 ```swift
-// Instantiate a fresh Bitcoin service (regtest).
-let service = BlockchainService()
-
-// Create the genesis block.
-await service.createGenesisBlock()
+// Create a fresh blockchain service instance (on regtest).
+let blockchain = BlockchainService()
 
 // Mine 100 blocks so block 1's coinbase output reaches maturity.
 for _ in 0 ..< 100 {
-    await service.generateTo(publicKey)
+    await blockchain.generateTo(publicKey)
 }
 ```
 
@@ -54,22 +51,20 @@ Prepare our transaction.
 
 ```swift
 // Grab block 1's coinbase transaction and output.
-let fundingTx = await service.txs[1][0]
+let fundingTx = await blockchain.blocks[1].txs[0]
 let prevout = fundingTx.outs[0]
 
 // Create a new transaction spending from the previous transaction's outpoint.
-let unsignedInput = TransactionInput(outpoint: fundingTx.outpoint(0))
+let unsignedInput = TxIn(outpoint: fundingTx.outpoint(0))
 
 // Specify the transaction's output. We'll leave 1000 sats on the table to tip miners. We'll re-use the origin address for simplicity.
-let spendingTx = BitcoinTx(
-    ins: [unsignedInput],
-    outs: [address.out(100)])
+let spendingTx = BitcoinTx(ins: [unsignedInput], outs: [address.out(100)])
 ```
 
 We now need to sign the transaction using our secret key.
 
 ```swift
-let signer = TransactionSigner(tx: spendingTx, prevouts: [prevout])
+let signer = TxSigner(tx: spendingTx, prevouts: [prevout])
 let signedTx = signer.sign(txIn: 0, with: secretKey)
 ```
 
@@ -87,11 +82,10 @@ Now we're ready to submit our signed transaction to the mempool.
 
 ```swift
 // Submit the signed transaction to the mempool.
-await service.addTx(signedTx)
+try await blockchain.addTx(signedTx)
 
 // The mempool should now contain our transaction.
-let mempoolBefore = await service.mempool.count
-#expect(mempoolBefore == 1)
+#expect(await blockchain.mempool.count == 1)
 ```
 
 After confirming the transaction was accepted we can mine a block and get it confirmed.
@@ -103,23 +97,22 @@ After confirming the transaction was accepted we can mine a block and get it con
 let publicKeyHash = Data(Hash160.hash(data: publicKey.data))
 
 // Minde to the public key hash
-await service.generateTo(publicKeyHash)
+await blockchain.generateTo(publicKeyHash)
 
 // The mempool should now be empty.
-let mempoolAfter = await service.mempool.count
-#expect(mempoolAfter == 0)
+#expect(await blockchain.mempool.count == 0)
 ```
 
 Finally let's make sure the transaction was confirmed in a block.
 
 ```swift
-let blocks = await service.headers.count
+let blocks = await blockchain.blocks.count
 #expect(blocks == 102)
 
-let lastBlock = await service.txs.last!
+let lastBlock = await blockchain.blocks.last!
 // Verify our transaction was confirmed in a block.
 
-#expect(lastBlock[1] == signedTx)
+#expect(lastBlock.txs[1] == signedTx)
 // Our transaction is now confirmed in the blockchain!
 ```
 

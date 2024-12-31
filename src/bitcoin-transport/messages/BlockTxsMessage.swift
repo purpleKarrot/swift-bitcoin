@@ -1,7 +1,7 @@
 import Foundation
 import BitcoinBase
 
-/// A `BlockTransactions` (i.e. ``BlockTransactionsMessage``) structure is used to provide some of the transactions in a block, as requested.
+/// BIP152: A `BlockTransactions` structure is used to provide some of the transactions in a block, as requested.
 ///
 /// The `blocktxn` message is defined as a message containing a serialized `BlockTransactions` message and `pchCommand == "blocktxn"`.
 ///
