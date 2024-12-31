@@ -224,6 +224,8 @@ final class BlockSyncTests {
 
         let bobHeaders = try #require(HeadersMessage(mBA9_headers.payload))
         #expect(bobHeaders.items.count == 3)
+        await #expect(aliceChain.blocks[0].id == bobHeaders.items[0].previous)
+        #expect(bobHeaders.items[0].id == bobHeaders.items[1].previous)
 
         // … --(feefilter)->> Bob
         try await bob.processMessage(mAB7_feefilter, from: peerA) // No response expected
@@ -254,7 +256,7 @@ final class BlockSyncTests {
         try await alice.processMessage(mBA8_pong, from: peerB) // No response expected
         try await alice.processMessage(mBA9_headers, from: peerB)
 
-        #expect(await aliceChain.blocks.count == 4)
+        try await #require(aliceChain.blocks.count == 4)
 
         // Alice --(getdata)->> …
         let mAB10_getdata = try #require(await alice.popMessage(peerB))

@@ -34,7 +34,7 @@ public actor BlockchainService: Sendable {
     }
 
     public func getBlock(_ id: BlockID) -> TxBlock? {
-        guard let index = blocks.firstIndex(where: { $0.header.id == id }), index < tip else {
+        guard let index = blocks.firstIndex(where: { $0.id == id }), index < tip else {
             return .none
         }
         return blocks[index]
@@ -78,7 +78,7 @@ public actor BlockchainService: Sendable {
         var index = blocks.endIndex - 1
         var step = 1
         while index >= 0 {
-            let header = blocks[index].header
+            let header = blocks[index]
             have.append(header.id)
             if index == 0 { break }
 
@@ -89,11 +89,11 @@ public actor BlockchainService: Sendable {
         return have
     }
 
-    public func findHeaders(using locator: [Data]) -> [BlockHeader] {
+    public func findHeaders(using locator: [Data]) -> [TxBlock] {
         var from = Int?.none
         for id in locator {
             for index in blocks.indices {
-                let header = blocks[index].header
+                let header = blocks[index]
                 if header.id == id {
                     from = index
                     break
@@ -108,18 +108,23 @@ public actor BlockchainService: Sendable {
         if lastIndex - firstIndex > 200 {
             lastIndex = from.advanced(by: 200)
         }
-        return .init(blocks[firstIndex ..< lastIndex].map(\.header))
+        var headers = [TxBlock]()
+        for var block in blocks[firstIndex ..< lastIndex] {
+            block.txs = []
+            headers.append(block)
+        }
+        return headers
     }
 
-    public func processHeaders(_ newHeaders: [BlockHeader]) throws {
+    public func processHeaders(_ newHeaders: [TxBlock]) throws {
         var height = blocks.count
-        for newHeader in newHeaders {
+        for var newHeader in newHeaders {
 
             guard newHeader.version == 0x20000000 else {
                 throw Error.unsupportedBlockVersion
             }
 
-            let lastVerifiedHeader = blocks.last!.header
+            let lastVerifiedHeader = blocks.last!
             guard lastVerifiedHeader.id == newHeader.previous else {
                 throw Error.orphanHeader
             }
@@ -139,7 +144,8 @@ public actor BlockchainService: Sendable {
                 throw Error.insuficientProofOfWork
             }
             let chainwork = lastVerifiedHeader.work + newHeader.work
-            blocks.append(.init(header: newHeader, context: .init(height: height, chainwork: chainwork, status: .header)))
+            newHeader.context = .init(height: height, chainwork: chainwork, status: .header)
+            blocks.append(newHeader)
             height += 1
         }
     }
@@ -149,7 +155,7 @@ public actor BlockchainService: Sendable {
         let realNumberOfBlocks = min(numberOfBlocks, delta)
         var hashes = [Data]()
         for i in tip ..< (tip + realNumberOfBlocks) {
-            hashes.append(blocks[i].header.id)
+            hashes.append(blocks[i].id)
         }
         return hashes
     }
@@ -157,7 +163,7 @@ public actor BlockchainService: Sendable {
     public func getBlocks(_ hashes: [Data]) -> [TxBlock] {
         var ret = [TxBlock]()
         for hash in hashes {
-            guard let index = blocks.firstIndex(where: { $0.header.id == hash }),
+            guard let index = blocks.firstIndex(where: { $0.id == hash }),
                   index < tip else {
                 continue
             }
@@ -168,15 +174,15 @@ public actor BlockchainService: Sendable {
 
     public func processBlock(_ block: TxBlock) {
         if tip < blocks.count {
-            guard block.header == blocks[tip].header else {
+            guard block.headerData == blocks[tip].headerData else {
                 return
             }
-        } else if block.header.previous == blocks[tip - 1].header.id {
+        } else if block.previous == blocks[tip - 1].id {
             return
         }
         // Verify merkle root
         let expectedMerkleRoot = calculateMerkleRoot(block.txs)
-        guard block.header.merkleRoot == expectedMerkleRoot else {
+        guard block.merkleRoot == expectedMerkleRoot else {
             return
         }
         // TODO: Verify each transaction
@@ -191,7 +197,7 @@ public actor BlockchainService: Sendable {
                 return
             }
         }
-        let chainwork = blocks[tip - 1].header.work + block.header.work
+        let chainwork = blocks[tip - 1].work + block.work
         var newBlock = block
         newBlock.context =  .init(height: tip, chainwork: chainwork, status: .full)
         if tip < blocks.count {
@@ -220,16 +226,16 @@ public actor BlockchainService: Sendable {
         let witnessMerkleRoot = calculateWitnessMerkleRoot(mempool)
         let coinbaseTx = BitcoinTx.makeCoinbaseTx(blockHeight: tip, publicKeyHash: publicKeyHash, witnessMerkleRoot: witnessMerkleRoot, blockSubsidy: consensusParams.blockSubsidy)
 
-        let previousBlockHash = blocks.last!.header.id
+        let previousBlockHash = blocks.last!.id
         let newTxs = [coinbaseTx] + mempool
         let merkleRoot = calculateMerkleRoot(newTxs)
 
         let target = getNextWorkRequired(forHeight: tip - 1, newBlockTime: blockTime, params: consensusParams)
 
         var nonce = 0
-        var header: BlockHeader
+        var header: TxBlock
         repeat {
-            header = BlockHeader(
+            header = .init(
                 version: 0x20000000,
                 previous: previousBlockHash,
                 merkleRoot: merkleRoot,
@@ -240,8 +246,12 @@ public actor BlockchainService: Sendable {
             nonce += 1
         } while DifficultyTarget(header.hash) > DifficultyTarget(compact: target)
 
-        let chainwork = blocks.last!.header.work + DifficultyTarget.getWork(target)
-        let blockFound = TxBlock(header: header, context: .init(height: tip, chainwork: chainwork, status: .full), txs: newTxs)
+        let chainwork = blocks.last!.work + DifficultyTarget.getWork(target)
+        let blockFound = TxBlock(
+            context: .init(height: tip, chainwork: chainwork, status: .full),
+            version: header.version, previous: header.previous, merkleRoot: header.merkleRoot, time: header.time, target: header.target, nonce: header.nonce,
+            txs: newTxs
+        )
         blocks.append(blockFound)
         tip += 1
         mempool = .init()
@@ -274,7 +284,7 @@ public actor BlockchainService: Sendable {
 
     private func getNextWorkRequired(forHeight heightLast: Int, newBlockTime: Date, params: ConsensusParams) -> Int {
         precondition(heightLast >= 0)
-        let lastHeader = blocks[heightLast].header
+        let lastHeader = blocks[heightLast]
         let powLimitTarget = DifficultyTarget(Data(params.powLimit.reversed()))
         let proofOfWorkLimit = powLimitTarget.toCompact()
 
@@ -292,7 +302,7 @@ public actor BlockchainService: Sendable {
                     var header = lastHeader
                     while height > 0 && height % params.difficultyAdjustmentInterval != 0 && header.target == proofOfWorkLimit {
                         height -= 1
-                        header = blocks[height].header
+                        header = blocks[height]
                     }
                     return header.target
                 }
@@ -303,11 +313,11 @@ public actor BlockchainService: Sendable {
         // Go back by what we want to be 14 days worth of blocks
         let heightFirst = heightLast - (params.difficultyAdjustmentInterval - 1)
         precondition(heightFirst >= 0)
-        let firstHeader = blocks[heightFirst].header // pindexLast->GetAncestor(nHeightFirst)
+        let firstHeader = blocks[heightFirst] // pindexLast->GetAncestor(nHeightFirst)
         return calculateNextWorkRequired(lastHeader: lastHeader, firstBlockTime: firstHeader.time, params: params)
     }
 
-    private func calculateNextWorkRequired(lastHeader: BlockHeader, firstBlockTime: Date, params: ConsensusParams) -> Int {
+    private func calculateNextWorkRequired(lastHeader: TxBlock, firstBlockTime: Date, params: ConsensusParams) -> Int {
         if params.powNoRetargeting {
             return lastHeader.target
         }
@@ -338,7 +348,7 @@ public actor BlockchainService: Sendable {
         let height = height ?? blocks.count - 1
         precondition(height >= 0 && height < blocks.count)
         let start = max(height - 11, 0)
-        let median = blocks.lazy.map(\.header.time)[start...height].sorted()
+        let median = blocks.lazy.map(\.time)[start...height].sorted()
         precondition(median.startIndex == 0)
         return median[median.count / 2]
     }

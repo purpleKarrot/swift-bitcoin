@@ -198,7 +198,7 @@ public actor NodeService: Sendable {
     func sendBlock(_ block: TxBlock, to id: UUID) async {
         guard let _ = state.peers[id] else { return }
         let nonce = UInt64.random(in: UInt64.min ... UInt64.max)
-        let compactBlockMesssage = CompactBlockMessage(header: block.header, nonce: nonce, txIDs: [block.makeShortTxID(for: 0, nonce: nonce)], txs: [.init(index: 0, tx: block.txs[0])])
+        let compactBlockMesssage = CompactBlockMessage(header: block, nonce: nonce, txIDs: [block.makeShortTxID(for: 0, nonce: nonce)], txs: [.init(index: 0, tx: block.txs[0])])
         await send(.cmpctblock, payload: compactBlockMesssage.data, to: id)
     }
 
@@ -497,7 +497,6 @@ public actor NodeService: Sendable {
 
         let headers = await blockchainService.findHeaders(using: getHeaders.locatorHashes)
         let headersMessage = HeadersMessage(items: headers)
-
         enqueue(.headers, payload: headersMessage.data, to: id)
     }
 
@@ -602,7 +601,9 @@ public actor NodeService: Sendable {
         // try await blockchainService.processHeaders([compactBlockMessage.header])
         // TODO: Process header first and then send getblocktxn for the non prefilled ones which we are lacking (check transaction ids)
 
-        await blockchainService.processBlock(.init(header: compactBlockMessage.header, txs: compactBlockMessage.txs.map { $0.tx }))
+        var block = compactBlockMessage.header
+        block.txs = compactBlockMessage.txs.map { $0.tx }
+        await blockchainService.processBlock(block)
     }
 
     static let minCompactBlocksVersion = 2

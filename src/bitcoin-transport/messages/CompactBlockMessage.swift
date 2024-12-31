@@ -7,7 +7,7 @@ import BitcoinBlockchain
 ///
 public struct CompactBlockMessage: Equatable {
 
-    public init(header: BlockHeader, nonce: UInt64, txIDs: [Int], txs: [PrefilledTx]) {
+    public init(header: TxBlock, nonce: UInt64, txIDs: [Int], txs: [PrefilledTx]) {
         self.header = header
         self.nonce = nonce
         self.txIDs = txIDs
@@ -18,7 +18,7 @@ public struct CompactBlockMessage: Equatable {
     ///
     /// First 80 bytes of the block as defined by the encoding used by "block" messages.
     ///
-    public let header: BlockHeader
+    public let header: TxBlock
 
     /// A nonce for use in short transaction ID calculations.
     ///
@@ -45,9 +45,9 @@ extension CompactBlockMessage {
         guard data.count >= 1 else { return nil }
         var data = data
 
-        guard let header = BlockHeader(data) else { return nil }
+        guard let header = TxBlock(data) else { return nil }
         self.header = header
-        data = data.dropFirst(BlockHeader.size)
+        data = data.dropFirst(TxBlock.baseSize) // Data does not include the empty transaction array
 
         guard data.count >= MemoryLayout<UInt64>.size else { return nil }
         let nonce = data.withUnsafeBytes {
@@ -108,6 +108,6 @@ extension CompactBlockMessage {
     }
 
     var size: Int {
-        BlockHeader.size + MemoryLayout<UInt64>.size + UInt64(txIDs.count).varIntSize + txIDs.count * 6 + UInt64(txs.count).varIntSize + txs.reduce(0) { $0 + $1.size }
+        TxBlock.baseSize + MemoryLayout<UInt64>.size + UInt64(txIDs.count).varIntSize + txIDs.count * 6 + UInt64(txs.count).varIntSize + txs.reduce(0) { $0 + $1.size }
     }
 }

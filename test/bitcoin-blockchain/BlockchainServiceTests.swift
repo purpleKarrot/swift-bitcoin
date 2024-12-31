@@ -17,7 +17,7 @@ struct BlockchainServiceTests {
 
         let bob = BlockchainService()
 
-        let header1 = await alice.blocks[1].header
+        let header1 = await alice.blocks[1]
 
         try await bob.processHeaders([header1])
         await #expect(bob.blocks.count == 2)
@@ -28,7 +28,7 @@ struct BlockchainServiceTests {
         let bobMissingBlocks = await alice.getBlocks(bobMissingBlockIDs)
         let bobMissingBlock = bobMissingBlocks[0]
         let block1 = await alice.getBlock(1)
-        #expect(bobMissingBlocks.count == 1 && bobMissingBlock.header == header1 && bobMissingBlock.txs == block1.txs)
+        #expect(bobMissingBlocks.count == 1 && bobMissingBlock == header1 && bobMissingBlock.txs == block1.txs)
 
         await bob.processBlock(block1)
         await #expect(bob.tip == 2)
@@ -194,8 +194,8 @@ struct BlockchainServiceTests {
         await service.createGenesisBlock()
         let genesisBlock = await service.genesisBlock
 
-        #expect(genesisBlock.header.target == 0x207fffff)
-        let genesisDate = genesisBlock.header.time
+        #expect(genesisBlock.target == 0x207fffff)
+        let genesisDate = genesisBlock.time
         var date = genesisDate
         var calendar = Calendar(identifier: .iso8601)
         calendar.timeZone = .gmt
@@ -205,9 +205,9 @@ struct BlockchainServiceTests {
             let minutes = if i < 5 { 4 } else if i < 10 { 2 } else { 4 }
             date = calendar.date(byAdding: .minute, value: minutes, to: date)!
             await service.generateTo(publicKey, blockTime: date)
-            let header = await service.blocks.last!.header
+            let header = await service.blocks.last!
             let expectedTarget = if (1...4).contains(i) {
-                0x207fffff // 0x7fffff0000000000000000000000000000000000000000000000000000000000 DifficultyTarget(compact: block.header.target).data.reversed().hex
+                0x207fffff // 0x7fffff0000000000000000000000000000000000000000000000000000000000 DifficultyTarget(compact: block.target).data.reversed().hex
             } else if (5...9).contains(i) {
                 0x1f6d386d // 0x006d386d00000000000000000000000000000000000000000000000000000000
             } else if (10...14).contains(i) {
