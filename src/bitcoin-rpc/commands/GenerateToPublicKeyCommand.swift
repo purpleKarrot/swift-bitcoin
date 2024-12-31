@@ -25,7 +25,7 @@ public struct GenerateToPublicKeyCommand: Sendable {
         }
 
         await blockchainService.generateTo(publicKey)
-        let result = await blockchainService.headers.last!.idHex
+        let result = await blockchainService.blocks.last!.header.idHex
 
         return .init(id: request.id, result: JSONObject.string(result))
     }

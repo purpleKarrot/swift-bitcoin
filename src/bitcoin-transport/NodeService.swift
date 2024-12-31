@@ -104,7 +104,7 @@ public actor NodeService: Sendable {
     /// Request headers from peers.
     public func requestHeaders() async {
         let maxHeight = state.peers.values.reduce(-1) { max($0, $1.height) }
-        let ourHeight = await blockchainService.headers.count - 1
+        let ourHeight = await blockchainService.blocks.count - 1
         guard maxHeight > ourHeight,
               let (id, _) = state.peers.filter({ $0.value.height == maxHeight }).randomElement() else {
             return
@@ -165,7 +165,7 @@ public actor NodeService: Sendable {
     func makeVersion(for id: UUID) async -> VersionMessage {
         guard let peer = state.peers[id] else { preconditionFailure() }
 
-        let lastBlock = await blockchainService.txs.count - 1
+        let lastBlock = await blockchainService.tip - 1
         return .init(
             protocolVersion: config.version,
             services: config.services,
@@ -517,7 +517,7 @@ public actor NodeService: Sendable {
         do {
             try await blockchainService.processHeaders(headersMessage.items)
         } catch is BlockchainService.Error {
-            state.peers[id]?.height = await blockchainService.headers.count - 1
+            state.peers[id]?.height = await blockchainService.blocks.count - 1
         }
 
         if headersMessage.moreItems {
@@ -530,11 +530,11 @@ public actor NodeService: Sendable {
     func processBlock(_ message: BitcoinMessage, from id: UUID) async throws {
         guard let _ = state.peers[id] else { preconditionFailure() }
 
-        guard let blockMessage = TxBlock(message.payload) else {
+        guard let block = TxBlock(message.payload) else {
             throw Error.invalidPayload
         }
 
-        await blockchainService.processBlock(header: blockMessage.header, txs: blockMessage.txs)
+        await blockchainService.processBlock(block)
 
         state.peers[id]?.inTransitBlocks -= 1
 
@@ -554,9 +554,8 @@ public actor NodeService: Sendable {
         if !blockHashes.isEmpty {
             let blocks = await blockchainService.getBlocks(blockHashes)
 
-            for (header, txs) in blocks {
-                let blockMessage = TxBlock(header: header, txs: txs)
-                enqueue(.block, payload: blockMessage.data, to: id)
+            for block in blocks {
+                enqueue(.block, payload: block.data, to: id)
             }
         }
 
@@ -603,7 +602,7 @@ public actor NodeService: Sendable {
         // try await blockchainService.processHeaders([compactBlockMessage.header])
         // TODO: Process header first and then send getblocktxn for the non prefilled ones which we are lacking (check transaction ids)
 
-        await blockchainService.processBlock(header: compactBlockMessage.header, txs: compactBlockMessage.txs.map { $0.tx })
+        await blockchainService.processBlock(.init(header: compactBlockMessage.header, txs: compactBlockMessage.txs.map { $0.tx }))
     }
 
     static let minCompactBlocksVersion = 2

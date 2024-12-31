@@ -7,14 +7,16 @@ public struct TxBlock: Equatable, Sendable {
 
     // MARK: - Initializers
 
-    public init(header: BlockHeader, txs: [BitcoinTx] = []) {
+    public init(header: BlockHeader, context: BlockContext? = .none, txs: [BitcoinTx] = []) {
         self.header = header
+        self.context = context
         self.txs = txs
     }
 
     // MARK: - Instance Properties
 
     public let header: BlockHeader
+    public var context: BlockContext?
     public let txs: [BitcoinTx]
 
     // MARK: - Computed Properties
@@ -25,16 +27,26 @@ public struct TxBlock: Equatable, Sendable {
 
     // MARK: - Type Methods
 
+    public static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.header == rhs.header && lhs.txs == rhs.txs
+    }
+
     static func makeGenesisBlock(consensusParams: ConsensusParams) -> Self {
         let genesisTx = BitcoinTx.makeGenesisTx(blockSubsidy: consensusParams.blockSubsidy)
+        let target = consensusParams.genesisBlockTarget
         let genesisBlock = TxBlock(
             header: .init(
                 version: 1,
                 previous: Data(count: 32),
                 merkleRoot: genesisTx.id,
                 time: Date(timeIntervalSince1970: TimeInterval(consensusParams.genesisBlockTime)),
-                target: consensusParams.genesisBlockTarget,
+                target: target,
                 nonce: consensusParams.genesisBlockNonce
+            ),
+            context: .init(
+                height: 0,
+                chainwork: DifficultyTarget.getWork(target),
+                status: .full
             ),
             txs: [genesisTx])
         return genesisBlock

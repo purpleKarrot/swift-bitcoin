@@ -290,14 +290,12 @@ final class NodeServiceTests {
 
         halState = await hal.state
         #expect(halState.peers[satoshiPeer]!.compactBlocksVersionLocked)
-
-        let halHeadersBefore = await halChain.headers.count
-        #expect(halHeadersBefore == 1)
+        await #expect(halChain.blocks.count == 1)
 
         // … --(headers)->> Hal
         try await hal.processMessage(messageSH9_headers, from: satoshiPeer)
 
-        let halHeadersAfter = await halChain.headers.count
+        let halHeadersAfter = await halChain.blocks.count
         #expect(halHeadersAfter == 2)
 
         // Hal --(getdata)->> …
@@ -316,12 +314,12 @@ final class NodeServiceTests {
         satoshiState = await satoshi.state
         #expect(satoshiState.peers[halPeer]!.compactBlocksVersionLocked)
 
-        let satoshiHeadersBefore = await satoshiChain.headers.count
+        let satoshiHeadersBefore = await satoshiChain.blocks.count
 
         // … --(headers)->> Satoshi
         try await satoshi.processMessage(messageHS8_headers, from: halPeer)
 
-        let satoshiHeadersAfter = await satoshiChain.headers.count
+        let satoshiHeadersAfter = await satoshiChain.blocks.count
         #expect(satoshiHeadersAfter == satoshiHeadersBefore)
 
         // No Response
@@ -337,13 +335,13 @@ final class NodeServiceTests {
         let satoshiBlock = try #require(TxBlock(messageSH10_block.payload))
         #expect(satoshiBlock.txs.count == 1)
 
-        let halBlocksBefore = await halChain.txs.count
+        let halBlocksBefore = await halChain.tip
         #expect(halBlocksBefore == 1)
 
         // … --(block)->> Hal
         try await hal.processMessage(messageSH10_block, from: satoshiPeer)
 
-        let halBlocksAfter = await halChain.txs.count
+        let halBlocksAfter = await halChain.tip
         #expect(halBlocksAfter == 2)
 
         // No Response

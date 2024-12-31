@@ -10,9 +10,9 @@ public actor BlockchainService: Sendable {
     }
 
     let consensusParams: ConsensusParams
-    public private(set) var headers = [BlockHeader]()
-    public private(set) var txs = [[BitcoinTx]]()
+    public private(set) var blocks = [TxBlock]()
     public private(set) var mempool = [BitcoinTx]()
+    public private(set) var tip = 0
 
     /// Subscriptions to new blocks.
     private var blockChannels = [AsyncChannel<TxBlock>]()
@@ -20,26 +20,24 @@ public actor BlockchainService: Sendable {
     public init(consensusParams: ConsensusParams = .regtest) {
         self.consensusParams = consensusParams
         let genesisBlock = TxBlock.makeGenesisBlock(consensusParams: consensusParams)
-        headers.append(genesisBlock.header)
-        txs.append(genesisBlock.txs)
+        blocks.append(genesisBlock)
+        tip += 1
     }
 
     public var genesisBlock: TxBlock {
-        .init(header: headers[0], txs: txs[0])
+        blocks[0]
     }
 
     public func getBlock(_ height: Int) -> TxBlock {
-        precondition(height < txs.count)
-        return .init(header: headers[height], txs: txs[height])
+        precondition(height < tip)
+        return blocks[height]
     }
 
     public func getBlock(_ id: BlockID) -> TxBlock? {
-        guard let index = headers.firstIndex(where: { $0.id == id }), index < txs.endIndex else {
+        guard let index = blocks.firstIndex(where: { $0.header.id == id }), index < tip else {
             return .none
         }
-        let header = headers[index]
-        let txs = txs[index]
-        return .init(header: header, txs: txs)
+        return blocks[index]
     }
 
     /// Adds a transaction to the mempool.
@@ -50,10 +48,10 @@ public actor BlockchainService: Sendable {
     }
 
     public func createGenesisBlock() {
-        guard txs.isEmpty else { return }
+        guard blocks.isEmpty else { return }
         let genesisBlock = TxBlock.makeGenesisBlock(consensusParams: consensusParams)
-        headers.append(genesisBlock.header)
-        txs.append(genesisBlock.txs)
+        blocks.append(genesisBlock)
+        tip += 1
     }
 
     public func subscribeToBlocks() -> AsyncChannel<TxBlock> {
@@ -74,13 +72,13 @@ public actor BlockchainService: Sendable {
 
     /// To create the block locator hashes, keep pushing hashes until you go back to the genesis block. After pushing 10 hashes back, the step backwards doubles every loop.
     public func makeBlockLocator() -> [Data] {
-        precondition(!headers.isEmpty)
+        precondition(!blocks.isEmpty)
 
         var have = [Data]()
-        var index = headers.endIndex - 1
+        var index = blocks.endIndex - 1
         var step = 1
         while index >= 0 {
-            let header = headers[index]
+            let header = blocks[index].header
             have.append(header.id)
             if index == 0 { break }
 
@@ -94,8 +92,8 @@ public actor BlockchainService: Sendable {
     public func findHeaders(using locator: [Data]) -> [BlockHeader] {
         var from = Int?.none
         for id in locator {
-            for index in headers.indices {
-                let header = headers[index]
+            for index in blocks.indices {
+                let header = blocks[index].header
                 if header.id == id {
                     from = index
                     break
@@ -105,22 +103,23 @@ public actor BlockchainService: Sendable {
         }
         guard let from else { return [] }
         let firstIndex = from.advanced(by: 1)
-        var lastIndex = txs.endIndex
+        var lastIndex = tip
         if firstIndex >= lastIndex { return [] }
         if lastIndex - firstIndex > 200 {
             lastIndex = from.advanced(by: 200)
         }
-        return .init(headers[firstIndex ..< lastIndex])
+        return .init(blocks[firstIndex ..< lastIndex].map(\.header))
     }
 
     public func processHeaders(_ newHeaders: [BlockHeader]) throws {
+        var height = blocks.count
         for newHeader in newHeaders {
 
             guard newHeader.version == 0x20000000 else {
                 throw Error.unsupportedBlockVersion
             }
 
-            let lastVerifiedHeader = headers.last!
+            let lastVerifiedHeader = blocks.last!.header
             guard lastVerifiedHeader.id == newHeader.previous else {
                 throw Error.orphanHeader
             }
@@ -135,57 +134,53 @@ public actor BlockchainService: Sendable {
                 throw Error.headerTooNew
             }
 
-            let target = getNextWorkRequired(forHeight: txs.endIndex.advanced(by: -1), newBlockTime: newHeader.time, params: consensusParams)
+            let target = getNextWorkRequired(forHeight: blocks.endIndex.advanced(by: -1), newBlockTime: newHeader.time, params: consensusParams)
             guard DifficultyTarget(compact: newHeader.target) <= DifficultyTarget(compact: target), DifficultyTarget(newHeader.hash) <= DifficultyTarget(compact: newHeader.target) else {
                 throw Error.insuficientProofOfWork
             }
-            headers.append(newHeader)
+            let chainwork = lastVerifiedHeader.work + newHeader.work
+            blocks.append(.init(header: newHeader, context: .init(height: height, chainwork: chainwork, status: .header)))
+            height += 1
         }
     }
 
     public func getNextMissingBlocks(_ numberOfBlocks: Int) -> [Data] {
-        let lastBlockIndex = txs.count
-        let delta = headers.count - txs.count
+        let delta = blocks.count - tip
         let realNumberOfBlocks = min(numberOfBlocks, delta)
         var hashes = [Data]()
-        for i in lastBlockIndex ..< (lastBlockIndex + realNumberOfBlocks) {
-            hashes.append(headers[i].id)
+        for i in tip ..< (tip + realNumberOfBlocks) {
+            hashes.append(blocks[i].header.id)
         }
         return hashes
     }
 
-    public func getBlocks(_ hashes: [Data]) -> [(BlockHeader, [BitcoinTx])] {
-        var ret = [(BlockHeader, [BitcoinTx])]()
+    public func getBlocks(_ hashes: [Data]) -> [TxBlock] {
+        var ret = [TxBlock]()
         for hash in hashes {
-            guard let index = headers.firstIndex(where: { $0.id == hash }),
-                  index < txs.count else {
+            guard let index = blocks.firstIndex(where: { $0.header.id == hash }),
+                  index < tip else {
                 continue
             }
-            ret.append((
-                headers[index],
-                txs[index]
-            ))
+            ret.append(blocks[index])
         }
         return ret
     }
 
-    public func processBlock(header: BlockHeader, txs blockTxs: [BitcoinTx]) {
-        if headers.count > txs.count {
-            guard header == headers[txs.count] else { return }
-        } else {
-            guard header.previous == headers[headers.count - 1].id else {
+    public func processBlock(_ block: TxBlock) {
+        if tip < blocks.count {
+            guard block.header == blocks[tip].header else {
                 return
             }
-            headers.append(header)
+        } else if block.header.previous == blocks[tip - 1].header.id {
+            return
         }
         // Verify merkle root
-        let expectedMerkleRoot = calculateMerkleRoot(blockTxs)
-        guard header.merkleRoot == expectedMerkleRoot else {
-            // TODO: remove block header
+        let expectedMerkleRoot = calculateMerkleRoot(block.txs)
+        guard block.header.merkleRoot == expectedMerkleRoot else {
             return
         }
         // TODO: Verify each transaction
-        for t in blockTxs {
+        for t in block.txs {
             do {
                 try t.check()
                 // TODO: `try t.checkIns(coins: [], spendHeight: [])`
@@ -193,11 +188,19 @@ public actor BlockchainService: Sendable {
                 // TODO: `t.checkSequenceLocks(verifyLockTimeSequence: T##Bool, coins: T##[TxOutpoint : UnspentOut], chainTip: T##Int, previousBlockMedianTimePast: T##Int)
                 // TODO: Task { t.verifyScript(prevouts: T##[TxOut], config: T##ScriptConfig) }
             } catch {
-                // TODO: remove block header
                 return
             }
         }
-        txs.append(blockTxs)
+        let chainwork = blocks[tip - 1].header.work + block.header.work
+        var newBlock = block
+        newBlock.context =  .init(height: tip, chainwork: chainwork, status: .full)
+        if tip < blocks.count {
+            blocks[tip] = newBlock
+        } else {
+            blocks.append(newBlock)
+        }
+        tip += 1
+        // TODO: Notify other nodes of new tip
     }
 
     public func generateTo(_ publicKey: PublicKey, blockTime: Date = .now) {
@@ -205,18 +208,23 @@ public actor BlockchainService: Sendable {
     }
 
     public func generateTo(_ publicKeyHash: Data, blockTime: Date = .now) {
-        if txs.isEmpty {
+        if blocks.isEmpty {
             createGenesisBlock()
         }
 
-        let witnessMerkleRoot = calculateWitnessMerkleRoot(mempool)
-        let coinbaseTx = BitcoinTx.makeCoinbaseTx(blockHeight: txs.count, publicKeyHash: publicKeyHash, witnessMerkleRoot: witnessMerkleRoot, blockSubsidy: consensusParams.blockSubsidy)
+        guard tip == blocks.count else {
+            // Waiting for pending block transactions for known headers
+            return
+        }
 
-        let previousBlockHash = headers.last!.id
+        let witnessMerkleRoot = calculateWitnessMerkleRoot(mempool)
+        let coinbaseTx = BitcoinTx.makeCoinbaseTx(blockHeight: tip, publicKeyHash: publicKeyHash, witnessMerkleRoot: witnessMerkleRoot, blockSubsidy: consensusParams.blockSubsidy)
+
+        let previousBlockHash = blocks.last!.header.id
         let newTxs = [coinbaseTx] + mempool
         let merkleRoot = calculateMerkleRoot(newTxs)
 
-        let target = getNextWorkRequired(forHeight: txs.endIndex.advanced(by: -1), newBlockTime: blockTime, params: consensusParams)
+        let target = getNextWorkRequired(forHeight: tip - 1, newBlockTime: blockTime, params: consensusParams)
 
         var nonce = 0
         var header: BlockHeader
@@ -232,11 +240,11 @@ public actor BlockchainService: Sendable {
             nonce += 1
         } while DifficultyTarget(header.hash) > DifficultyTarget(compact: target)
 
-        headers.append(header)
-        txs.append(newTxs)
+        let chainwork = blocks.last!.header.work + DifficultyTarget.getWork(target)
+        let blockFound = TxBlock(header: header, context: .init(height: tip, chainwork: chainwork, status: .full), txs: newTxs)
+        blocks.append(blockFound)
+        tip += 1
         mempool = .init()
-
-        let blockFound = TxBlock(header: header, txs: newTxs)
         Task {
             await withDiscardingTaskGroup {
                 for channel in blockChannels {
@@ -254,8 +262,8 @@ public actor BlockchainService: Sendable {
                 return t
             }
         }
-        for block in txs {
-            for t in block {
+        for block in blocks {
+            for t in block.txs {
                 if t.id == id {
                     return t
                 }
@@ -266,7 +274,7 @@ public actor BlockchainService: Sendable {
 
     private func getNextWorkRequired(forHeight heightLast: Int, newBlockTime: Date, params: ConsensusParams) -> Int {
         precondition(heightLast >= 0)
-        let lastHeader = headers[heightLast]
+        let lastHeader = blocks[heightLast].header
         let powLimitTarget = DifficultyTarget(Data(params.powLimit.reversed()))
         let proofOfWorkLimit = powLimitTarget.toCompact()
 
@@ -284,7 +292,7 @@ public actor BlockchainService: Sendable {
                     var header = lastHeader
                     while height > 0 && height % params.difficultyAdjustmentInterval != 0 && header.target == proofOfWorkLimit {
                         height -= 1
-                        header = headers[height]
+                        header = blocks[height].header
                     }
                     return header.target
                 }
@@ -295,7 +303,7 @@ public actor BlockchainService: Sendable {
         // Go back by what we want to be 14 days worth of blocks
         let heightFirst = heightLast - (params.difficultyAdjustmentInterval - 1)
         precondition(heightFirst >= 0)
-        let firstHeader = headers[heightFirst] // pindexLast->GetAncestor(nHeightFirst)
+        let firstHeader = blocks[heightFirst].header // pindexLast->GetAncestor(nHeightFirst)
         return calculateNextWorkRequired(lastHeader: lastHeader, firstBlockTime: firstHeader.time, params: params)
     }
 
@@ -327,10 +335,10 @@ public actor BlockchainService: Sendable {
     }
 
     private func getMedianTimePast(for height: Int? = .none) -> Date {
-        let height = height ?? headers.count - 1
-        precondition(height >= 0 && height < headers.count)
+        let height = height ?? blocks.count - 1
+        precondition(height >= 0 && height < blocks.count)
         let start = max(height - 11, 0)
-        let median = headers.lazy.map(\.time)[start...height].sorted()
+        let median = blocks.lazy.map(\.header.time)[start...height].sorted()
         precondition(median.startIndex == 0)
         return median[median.count / 2]
     }
