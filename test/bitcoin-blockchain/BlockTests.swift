@@ -27,7 +27,7 @@ struct BlockTests {
 
         let genesisBlockRedeserialized = try #require(TxBlock(genesisBlockData))
         #expect(genesisBlockRedeserialized == genesisBlock)
-        #expect(genesisBlock.header.idHex == expectedBlockHash)
+        #expect(genesisBlock.idHex == expectedBlockHash)
 
         // Short transaction ID
         // TODO: The following value is taken from the function's output so nothing is being verified until replaced with a known-to-be valid ID.
@@ -144,7 +144,7 @@ struct BlockTests {
         #expect(coinbaseTx.data == expectedCoinbaseTxData)
         #expect(block == expectedBlock)
         #expect(block.data == expectedBlockData)
-        #expect(block.header.idHex == expectedBlockHash)
+        #expect(block.idHex == expectedBlockHash)
 
         // Short transaction ID
         // TODO: The following value is taken from the function's output so nothing is being verified until replaced with a known-to-be valid ID.
@@ -156,13 +156,12 @@ struct BlockTests {
     @Test("Block date/time nanoseconds")
     func blockDateNanoseconds() throws {
         let emptyBlock = TxBlock(
-            header: .init(
-                previous: Data(repeating: 0, count: 32),
-                merkleRoot:  Data(repeating: 0, count: 32),
-                target: 0x207fffff,
-                nonce: 2
-            ),
-            txs: [])
+            previous: Data(repeating: 0, count: 32),
+            merkleRoot:  Data(repeating: 0, count: 32),
+            target: 0x207fffff,
+            nonce: 2,
+            txs: []
+        )
         let blockRoundTrip = try #require(TxBlock(emptyBlock.data))
         #expect(blockRoundTrip == emptyBlock)
     }

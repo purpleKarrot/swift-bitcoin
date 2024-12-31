@@ -224,6 +224,8 @@ final class BlockSyncTests {
 
         let bobHeaders = try #require(HeadersMessage(mBA9_headers.payload))
         #expect(bobHeaders.items.count == 3)
+        await #expect(aliceChain.blocks[0].id == bobHeaders.items[0].previous)
+        #expect(bobHeaders.items[0].id == bobHeaders.items[1].previous)
 
         // … --(feefilter)->> Bob
         try await bob.processMessage(mAB7_feefilter, from: peerA) // No response expected
@@ -254,8 +256,7 @@ final class BlockSyncTests {
         try await alice.processMessage(mBA8_pong, from: peerB) // No response expected
         try await alice.processMessage(mBA9_headers, from: peerB)
 
-        let aliceHeadersAfter = await aliceChain.headers.count
-        #expect(aliceHeadersAfter == 4)
+        try await #require(aliceChain.blocks.count == 4)
 
         // Alice --(getdata)->> …
         let mAB10_getdata = try #require(await alice.popMessage(peerB))
@@ -270,12 +271,12 @@ final class BlockSyncTests {
         // No Response
         #expect(await bob.popMessage(peerA) == nil)
 
-        let bobHeadersBefore = await bobChain.headers.count
+        let bobHeadersBefore = await bobChain.blocks.count
 
         // … --(headers)->> Bob
         try await bob.processMessage(mAB9_headers, from: peerA)
 
-        let bobHeadersAfter = await bobChain.headers.count
+        let bobHeadersAfter = await bobChain.blocks.count
         #expect(bobHeadersAfter == bobHeadersBefore)
 
         // No Response
@@ -298,16 +299,19 @@ final class BlockSyncTests {
         let bobBlock2 = try #require(TxBlock(mBA11_block.payload))
         #expect(bobBlock2.txs.count == 1)
 
-        let aliceBlocksBefore = await aliceChain.txs.count
-        #expect(aliceBlocksBefore == 1)
+        // No Response
+        #expect(await bob.popMessage(peerA) == nil)
+
+        await #expect(aliceChain.tip == 1)
 
         // … --(block)->> Alice
         // … --(block)->> Alice
         try await alice.processMessage(mBA10_block, from: peerB)
+        #expect(await aliceChain.tip == 2)
+
         try await alice.processMessage(mBA11_block, from: peerB)
 
-        var aliceBlocksAfter = await aliceChain.txs.count
-        #expect(aliceBlocksAfter == 3)
+        #expect(await aliceChain.tip == 3)
 
         // Alice --(getdata)->> …
         let mAB11_getdata = try #require(await alice.popMessage(peerB))
@@ -329,8 +333,7 @@ final class BlockSyncTests {
         // … --(block)->> Alice
         try await alice.processMessage(mBA12_block, from: peerB)
 
-        aliceBlocksAfter = await aliceChain.txs.count
-        #expect(aliceBlocksAfter == 4)
+        #expect(await aliceChain.tip == 4)
 
         // No Response
         #expect(await alice.popMessage(peerB) == nil)

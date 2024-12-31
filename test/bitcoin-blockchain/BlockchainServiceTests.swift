@@ -17,22 +17,71 @@ struct BlockchainServiceTests {
 
         let bob = BlockchainService()
 
-        let header1 = await alice.headers[1]
+        let header1 = await alice.blocks[1]
 
         try await bob.processHeaders([header1])
-        await #expect(bob.headers.count == 2)
+        await #expect(bob.blocks.count == 2)
 
         let bobMissingBlockIDs = await bob.getNextMissingBlocks(.max)
         #expect(bobMissingBlockIDs == [header1.id])
 
         let bobMissingBlocks = await alice.getBlocks(bobMissingBlockIDs)
-        let (bobMissingBlockHeader, bobMissingBlockTxs) = bobMissingBlocks[0]
+        let bobMissingBlock = bobMissingBlocks[0]
         let block1 = await alice.getBlock(1)
-        #expect(bobMissingBlocks.count == 1 && bobMissingBlockHeader == header1 && bobMissingBlockTxs == block1.txs)
+        #expect(bobMissingBlocks.count == 1 && bobMissingBlock == header1 && bobMissingBlock.txs == block1.txs)
 
-        await bob.processBlock(header: block1.header, txs: block1.txs)
-        await #expect(bob.txs.count == 2)
+        await bob.processBlock(block1)
+        await #expect(bob.tip == 2)
     }
+
+    /// Tests synchronizing blocks between two blockchains.
+    @Test("Blockchain synchronization with traffic limit")
+    func tafficLimitBlockchainSync() async throws {
+        let secretKey = SecretKey()
+        let publicKey = secretKey.publicKey
+
+        let alice = BlockchainService()
+
+        let bob = BlockchainService()
+        await bob.generateTo(publicKey)
+        await bob.generateTo(publicKey)
+        await bob.generateTo(publicKey)
+
+        let aliceLocator = await alice.makeBlockLocator()
+        #expect(aliceLocator.count == 1)
+
+        let bobHeaders = await bob.findHeaders(using: aliceLocator)
+        #expect(bobHeaders.count == 3)
+
+        try await alice.processHeaders(bobHeaders)
+        await #expect(alice.blocks.count == 4)
+        await #expect(alice.tip == 1)
+
+        let aliceMissing = await alice.getNextMissingBlocks(2)
+        #expect(aliceMissing.count == 2)
+
+        let bobBlocks1to2 = await bob.getBlocks(aliceMissing)
+        #expect(bobBlocks1to2.count == 2)
+
+        await alice.processBlock(bobBlocks1to2[0])
+        await #expect(alice.blocks.count == 4)
+        await #expect(alice.tip == 2)
+
+        await alice.processBlock(bobBlocks1to2[1])
+        await #expect(alice.blocks.count == 4)
+        await #expect(alice.tip == 3)
+
+        let aliceMissing2 = await alice.getNextMissingBlocks(2)
+        #expect(aliceMissing2.count == 1)
+
+        let bobBlocks3to3 = await bob.getBlocks(aliceMissing2)
+        #expect(bobBlocks3to3.count == 1)
+
+        await alice.processBlock(bobBlocks3to3[0])
+        await #expect(alice.blocks.count == 4)
+        await #expect(alice.tip == 4)
+    }
+
 
     /// Tests mining empty blocks, spending a coinbase transaction and mine again.
     @Test("Mine and spend")
@@ -105,9 +154,9 @@ struct BlockchainServiceTests {
 
         // Verify the mempool is empty once again.
         #expect(mempoolAfter == 0)
-        let blocks = await service.txs.count
+        let blocks = await service.tip
         #expect(blocks == 102)
-        let lastBlockTxs = try #require(await service.txs.last)
+        let lastBlockTxs = try #require(await service.blocks.last!.txs)
         // Verify our transaction was confirmed in a block.
         #expect(lastBlockTxs[1] == signedTx)
     }
@@ -145,8 +194,8 @@ struct BlockchainServiceTests {
         await service.createGenesisBlock()
         let genesisBlock = await service.genesisBlock
 
-        #expect(genesisBlock.header.target == 0x207fffff)
-        let genesisDate = genesisBlock.header.time
+        #expect(genesisBlock.target == 0x207fffff)
+        let genesisDate = genesisBlock.time
         var date = genesisDate
         var calendar = Calendar(identifier: .iso8601)
         calendar.timeZone = .gmt
@@ -156,9 +205,9 @@ struct BlockchainServiceTests {
             let minutes = if i < 5 { 4 } else if i < 10 { 2 } else { 4 }
             date = calendar.date(byAdding: .minute, value: minutes, to: date)!
             await service.generateTo(publicKey, blockTime: date)
-            let header = await service.headers.last!
+            let header = await service.blocks.last!
             let expectedTarget = if (1...4).contains(i) {
-                0x207fffff // 0x7fffff0000000000000000000000000000000000000000000000000000000000 DifficultyTarget(compact: block.header.target).data.reversed().hex
+                0x207fffff // 0x7fffff0000000000000000000000000000000000000000000000000000000000 DifficultyTarget(compact: block.target).data.reversed().hex
             } else if (5...9).contains(i) {
                 0x1f6d386d // 0x006d386d00000000000000000000000000000000000000000000000000000000
             } else if (10...14).contains(i) {

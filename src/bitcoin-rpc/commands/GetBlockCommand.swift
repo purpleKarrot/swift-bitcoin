@@ -25,7 +25,7 @@ public struct GetBlockCommand: Sendable {
         guard case let .list(objects) = RPCObject(request.params), let first = objects.first, case let .string(blockIDHex) = first else {
             throw RPCError(.invalidParams("blockID"), description: "BlockID (hex string) is required.")
         }
-        guard let blockID = Data(hex: blockIDHex), blockID.count == BlockHeader.idLength else {
+        guard let blockID = Data(hex: blockIDHex), blockID.count == TxBlock.idLength else {
             throw RPCError(.invalidParams("blockID"), description: "BlockID hex encoding or length is invalid.")
         }
 
@@ -35,8 +35,8 @@ public struct GetBlockCommand: Sendable {
         let txs = block.txs.map { $0.id.hex }
 
         let result = Output(
-            id: block.header.idHex,
-            previous: block.header.previous.hex,
+            id: block.idHex,
+            previous: block.previous.hex,
             txs: txs
         )
         return .init(id: request.id, result: JSONObject.string(result.description))

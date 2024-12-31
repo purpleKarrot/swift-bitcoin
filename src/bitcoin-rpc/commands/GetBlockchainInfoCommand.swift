@@ -22,8 +22,8 @@ public struct GetBlockchainInfoCommand: Sendable {
 
         precondition(request.method == Self.method)
 
-        let headers = await blockchainService.headers
-        let blocks = await blockchainService.txs.count
+        let headers = await blockchainService.blocks
+        let blocks = await blockchainService.tip
         let result = Output(
             headers: headers.count,
             blocks: blocks,
