@@ -9,7 +9,7 @@ extension ScriptContext {
 
         if sigVersion == .witnessV1 {
             let result = try checkSigSchnorr(sig, publicKeyData)
-            stack.append(ScriptBoolean(result).data)
+            stack.append(ScriptBool(result).data)
             return
         }
 
@@ -18,7 +18,7 @@ extension ScriptContext {
         if !result && config.contains(.nullFail) && !sig.isEmpty {
             throw ScriptError.signatureNotEmpty
         }
-        stack.append(ScriptBoolean(result).data)
+        stack.append(ScriptBool(result).data)
     }
 
     /// Same as `OP_CHECKSIG`, but `OP_VERIFY` is executed afterward.
@@ -38,8 +38,8 @@ extension ScriptContext {
             throw ScriptError.maxPublicKeysExceeded
         }
 
-        nonPushOperations += n
-        guard nonPushOperations <= BitcoinScript.maxOperations else {
+        nonPushOps += n
+        guard nonPushOps <= BitcoinScript.maxOps else {
             throw ScriptError.operationsLimitExceeded
         }
 
@@ -67,7 +67,7 @@ extension ScriptContext {
             throw ScriptError.signatureNotEmpty
         }
 
-        stack.append(ScriptBoolean(success).data)
+        stack.append(ScriptBool(success).data)
     }
 
     /// Same as `OP_CHECKMULTISIG`' but `OP_VERIFY` is executed afterward.

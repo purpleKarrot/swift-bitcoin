@@ -36,7 +36,7 @@ struct BitcoinCryptoTests {
         #expect(publicKey == publicKeyCopy)
 
         let message = "Hello, Bitcoin!"
-        let sig = try #require(Signature("c211fc6a0d3b89170af26e1bfcc511de813a01e855b862788e1fa576280a7abc202f1bc1535dc51c54ecbae48dcc9b5752ffa4a8852f7d81aafb695f5efd8876", type: .schnorr))
+        let sig = try #require(AnySig("c211fc6a0d3b89170af26e1bfcc511de813a01e855b862788e1fa576280a7abc202f1bc1535dc51c54ecbae48dcc9b5752ffa4a8852f7d81aafb695f5efd8876", type: .schnorr))
 
         let isSignatureValid = publicKey.verify(sig, for: message)
         #expect(isSignatureValid)
@@ -45,7 +45,7 @@ struct BitcoinCryptoTests {
         #expect(sig == sigCopy)
 
         // ECDSA signature
-        let sigECDSA = try #require(Signature("151756497fb7ad7b910341814aed135e5835b8fa3c6b63132cb36f4b453bdc3c61defc72d99ef44170bd130ef66a9ef4122c96e623d20bff79d0b740c29af2af", type: .compact))
+        let sigECDSA = try #require(AnySig("151756497fb7ad7b910341814aed135e5835b8fa3c6b63132cb36f4b453bdc3c61defc72d99ef44170bd130ef66a9ef4122c96e623d20bff79d0b740c29af2af", type: .compact))
 
         let isECDSASignatureValid = sigECDSA.verify(message: message, publicKey: publicKey)
         #expect(isECDSASignatureValid)

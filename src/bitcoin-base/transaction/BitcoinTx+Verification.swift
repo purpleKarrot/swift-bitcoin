@@ -64,7 +64,7 @@ extension BitcoinTx {
 
             // scriptSig and scriptPubKey must be evaluated sequentially on the same stack rather than being simply concatenated (see CVE-2010-5141)
             try context.run(scriptPubKey, stack: stackTmp)
-            if let last = context.stack.last, !ScriptBoolean(last).value {
+            if let last = context.stack.last, !ScriptBool(last).value {
                 throw ScriptError.falseReturned
             }
 
@@ -92,7 +92,7 @@ extension BitcoinTx {
                     witnessProgram = .none
 
                     try context.run(redeemScript, stack: stack)
-                    if let last = context.stack.last, !ScriptBoolean(last).value {
+                    if let last = context.stack.last, !ScriptBool(last).value {
                         throw ScriptError.falseReturned
                     }
                 }
@@ -143,7 +143,7 @@ extension BitcoinTx {
             try context.run(witnessScript, stack: stack, sigVersion: .witnessV0)
 
             // The verification must result in a single TRUE on the stack.
-            guard context.stack.count == 1, let last = context.stack.last, ScriptBoolean(last).value else {
+            guard context.stack.count == 1, let last = context.stack.last, ScriptBool(last).value else {
                 throw ScriptError.falseReturned
             }
         } else if witnessProgram.count == SHA256.Digest.byteCount /* 32 */ {
@@ -167,7 +167,7 @@ extension BitcoinTx {
             try context.run(witnessScript, stack: stack, sigVersion: .witnessV0)
 
             // The script must not fail, and result in exactly a single TRUE on the stack.
-            guard context.stack.count == 1, let last = context.stack.last, ScriptBoolean(last).value else {
+            guard context.stack.count == 1, let last = context.stack.last, ScriptBool(last).value else {
                 throw ScriptError.falseReturned
             }
         } else {
@@ -264,7 +264,7 @@ extension BitcoinTx {
         try context.run(tapscript, stack: stack, sigVersion: .witnessV1, leafVersion: leafVersion, tapLeafHash: tapLeafHash)
 
         // If the execution results in anything but exactly one element on the stack which evaluates to true with CastToBool(), fail.
-        guard context.stack.count == 1, let last = context.stack.last, ScriptBoolean(last).value else {
+        guard context.stack.count == 1, let last = context.stack.last, ScriptBool(last).value else {
             throw ScriptError.falseReturned
         }
 

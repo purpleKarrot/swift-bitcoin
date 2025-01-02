@@ -152,7 +152,7 @@ public struct PublicKey: Equatable, Sendable, CustomStringConvertible {
         self == PublicKey(secretKey)
     }
 
-    public func verify(_ sig: Signature, for message: String) -> Bool {
+    public func verify(_ sig: AnySig, for message: String) -> Bool {
         sig.verify(message: message, publicKey: self)
     }
 

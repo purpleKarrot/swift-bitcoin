@@ -74,7 +74,7 @@ struct TxTests {
 
                     if let witness = vinData.txinwitness {
                         let expectedWitnessData = witness.compactMap { Data(hex: $0) }
-                        let expectedWitness = InputWitness(expectedWitnessData)
+                        let expectedWitness = TxWitness(expectedWitnessData)
                         #expect(input.witness == expectedWitness)
                     }
                 } else {

@@ -20,7 +20,7 @@ struct BIP340Tests {
 
         let secretKey = try #require(SecretKey(secretKeyData))
         let internalKey = try #require(PublicKey(xOnly: internalKeyData))
-        let newSignature = Signature(hash: msgData, secretKey: secretKey, type: .schnorr, additionalEntropy: auxData)
+        let newSignature = AnySig(hash: msgData, secretKey: secretKey, type: .schnorr, additionalEntropy: auxData)
         #expect(newSignature.data == sigData)
         // Verify those sigs for good measure.
         #expect(newSignature.verify(hash: msgData, publicKey: internalKey))
@@ -38,7 +38,7 @@ struct BIP340Tests {
             #expect(internalKey.checkTweak(tweak, outputKey: outputKey))
 
             let tweakedSecretKey = secretKey.tweakXOnly(tweak)
-            let altSignature = Signature(hash: msgData, secretKey: tweakedSecretKey, type: .schnorr, additionalEntropy: auxRnd)
+            let altSignature = AnySig(hash: msgData, secretKey: tweakedSecretKey, type: .schnorr, additionalEntropy: auxRnd)
             let verificationResult = altSignature.verify(hash: msgData, publicKey: outputKey)
             #expect(verificationResult)
         }
@@ -66,7 +66,7 @@ struct BIP340Tests {
         let hash = Data(hashBytes)
         let sigData = Data(sigBytes)
         let publicKey = try #require(PublicKey(xOnly: publicKeyData))
-        let sig = try #require(Signature(sigData, type: .schnorr))
+        let sig = try #require(AnySig(sigData, type: .schnorr))
         #expect(sig.verify(hash: hash, publicKey: publicKey) == expectedResult)
     }
 }

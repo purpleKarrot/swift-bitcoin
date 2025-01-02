@@ -23,7 +23,7 @@ struct BitcoinWalletTests {
 
         let message = "Hello, Bitcoin!"
         let messageData = try #require(message.data(using: .utf8))
-        let sig = Signature(messageData: messageData, secretKey: secretKey2, type: .recoverable, recoverCompressedKeys: metadata.compressedPublicKeys)
+        let sig = AnySig(messageData: messageData, secretKey: secretKey2, type: .recoverable, recoverCompressedKeys: metadata.compressedPublicKeys)
 
         #expect(sig.base64 == "IN97K44jABXPVVQ5dnPo0AcLpmG/Q0b73Yxr6JQvIFtPJJQhshb4NJ2nHjqtRhKIUNGnFGr+tlHxzoOw6xpmJ5I=")
 

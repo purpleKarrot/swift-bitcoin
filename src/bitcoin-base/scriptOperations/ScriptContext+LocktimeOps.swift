@@ -38,10 +38,10 @@ extension ScriptContext {
         guard
             first.count < 6,
             sequence64 >= 0,
-            sequence64 <= InputSequence.maxCSVArgument
+            sequence64 <= TxSequence.maxCSVArgument
         else { throw ScriptError.invalidSequenceArgument }
         
-        let sequence = InputSequence(sequence64)
+        let sequence = TxSequence(sequence64)
         if sequence.isLocktimeDisabled { return }
         
         if tx.version == .v1 { throw ScriptError.minimumTxVersionRequired }

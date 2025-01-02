@@ -10,16 +10,16 @@ public struct BitcoinScript: Equatable, Sendable {
     
     /// Creates a script from a list of operations.
     /// - Parameters:
-    ///   - operations: A sequence of script operations.
-    public init(_ operations: [ScriptOperation]) {
-        self.operations = operations
+    ///   - ops: A sequence of script operations.
+    public init(_ ops: [ScriptOp]) {
+        self.ops = ops
         self.unparsable = .init()
     }
 
     // MARK: - Instance Properties
 
     /// List of all decoded script operations.
-    public let operations: [ScriptOperation]
+    public let ops: [ScriptOp]
 
     /// The portion of the original script data that could not be decoded into operations.
     public let unparsable: Data
@@ -28,29 +28,29 @@ public struct BitcoinScript: Equatable, Sendable {
 
     /// Attempts to parse the script and return its assembly representation. Otherwise returns an empty string.
     public func asm(_ sigVersion: SigVersion = .witnessV1) -> String {
-        (operations.map { $0.asm(sigVersion) } + [unparsable.hex]).joined(separator: " ")
+        (ops.map { $0.asm(sigVersion) } + [unparsable.hex]).joined(separator: " ")
     }
 
     var isEmpty: Bool {
-        operations.isEmpty && unparsable.isEmpty
+        ops.isEmpty && unparsable.isEmpty
     }
 
     // BIP16
     public var isPayToScriptHash: Bool {
         if size == RIPEMD160.Digest.byteCount + 3,
-           operations.count == 3,
-           operations[0] == .hash160,
-           case .pushBytes(_) = operations[1],
-           operations[2] == .equal { true } else { false }
+           ops.count == 3,
+           ops[0] == .hash160,
+           case .pushBytes(_) = ops[1],
+           ops[2] == .equal { true } else { false }
     }
 
     /// BIP141
     var isSegwit: Bool {
         if size >= 3 && size <= 41,
-           operations.count == 2,
-           case .pushBytes(_) = operations[1]
+           ops.count == 2,
+           case .pushBytes(_) = ops[1]
         {
-            if case .constant(_) = operations[0] { true } else { operations[0] == .zero }
+            if case .constant(_) = ops[0] { true } else { ops[0] == .zero }
         } else {
             false
         }
@@ -59,7 +59,7 @@ public struct BitcoinScript: Equatable, Sendable {
     /// BIP141
     var witnessProgram: Data {
         precondition(isSegwit)
-        guard case let .pushBytes(data) = operations[1] else {
+        guard case let .pushBytes(data) = ops[1] else {
             preconditionFailure()
         }
         return data
@@ -68,14 +68,14 @@ public struct BitcoinScript: Equatable, Sendable {
     /// BIP141
     var witnessVersion: Int {
         precondition(isSegwit)
-        return if case let .constant(value) = operations[0] { Int(value) } else if operations[0] == .zero { 0 } else { preconditionFailure() }
+        return if case let .constant(value) = ops[0] { Int(value) } else if ops[0] == .zero { 0 } else { preconditionFailure() }
     }
 
     // MARK: - Instance Methods
 
     // BIP62
     func checkPushOnly() throws {
-        guard operations.allSatisfy(\.isPush), unparsable.isEmpty else {
+        guard ops.allSatisfy(\.isPush), unparsable.isEmpty else {
             throw ScriptError.nonPushOnlyScript
         }
     }
@@ -95,7 +95,7 @@ public struct BitcoinScript: Equatable, Sendable {
     static let maxMultiSigPublicKeys = 20
 
     /// Maximum number of non-push operations per script.
-    static let maxOperations = 201
+    static let maxOps = 201
 
     /// Maximum script length in bytes.
     static let maxScriptSize = 10_000
@@ -131,7 +131,7 @@ public struct BitcoinScript: Equatable, Sendable {
     public static func payToMultiSignature(_ threshold: Int, of keys: PublicKey...) -> Self {
         precondition(keys.count <= 20 && threshold >= 0 && threshold <= keys.count)
         let keyOps = keys.map { key in
-            ScriptOperation.pushBytes(key.data)
+            ScriptOp.pushBytes(key.data)
         }
         return .init(
             [.encodeMinimally(threshold)] +
@@ -187,8 +187,8 @@ public struct BitcoinScript: Equatable, Sendable {
 
 extension BitcoinScript: ExpressibleByArrayLiteral {
 
-    public init(arrayLiteral operations: ScriptOperation...) {
-        self.init(operations)
+    public init(arrayLiteral ops: ScriptOp...) {
+        self.init(ops)
     }
 }
 
@@ -200,15 +200,15 @@ extension BitcoinScript {
     /// The script will be fully parsed – if possible. Any unparsable data will be stored separately.
     public init(_ data: Data) {
         var data = data
-        var operations = [ScriptOperation]()
+        var ops = [ScriptOp]()
         while data.count > 0 {
-            guard let operation = ScriptOperation(data) else {
+            guard let op = ScriptOp(data) else {
                 break
             }
-            operations.append(operation)
-            data = data.dropFirst(operation.size)
+            ops.append(op)
+            data = data.dropFirst(op.size)
         }
-        self.operations = operations
+        self.ops = ops
         self.unparsable = data
     }
 
@@ -223,11 +223,11 @@ extension BitcoinScript {
 
     /// Serialization of the script's operations into raw data. May include unparsable data.
     public var data: Data {
-        operations.reduce(Data()) { $0 + $1.data } + unparsable
+        ops.reduce(Data()) { $0 + $1.data } + unparsable
     }
 
     public var size: Int {
-        operations.reduce(0) { $0 + $1.size } + unparsable.count
+        ops.reduce(0) { $0 + $1.size } + unparsable.count
     }
 
     var prefixedData: Data {

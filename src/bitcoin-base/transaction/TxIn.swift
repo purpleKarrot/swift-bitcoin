@@ -11,7 +11,7 @@ public struct TxIn: Equatable, Sendable {
     ///   - sequence: This input's sequence number.
     ///   - script: Optional script to unlock the referenced output.
     ///   - witness: Optional witness data for this input. See BIP141 for more information.
-    public init(outpoint: TxOutpoint, sequence: InputSequence = .final, script: BitcoinScript = .empty, /* BIP141 */ witness: InputWitness? = .none) {
+    public init(outpoint: TxOutpoint, sequence: TxSequence = .final, script: BitcoinScript = .empty, /* BIP141 */ witness: TxWitness? = .none) {
         self.outpoint = outpoint
         self.sequence = sequence
         self.script = script
@@ -26,13 +26,13 @@ public struct TxIn: Equatable, Sendable {
     public var outpoint: TxOutpoint
 
     /// The sequence number for this input.
-    public var sequence: InputSequence
+    public var sequence: TxSequence
 
     /// The script that unlocks the output associated with this input.
     public var script: BitcoinScript
 
     /// BIP141 - Segregated witness data associated with this input.
-    public var witness: InputWitness?
+    public var witness: TxWitness?
 }
 
 /// Data extensions.
@@ -46,7 +46,7 @@ extension TxIn {
         guard let script = BitcoinScript(prefixedData: data) else { return nil }
         data = data.dropFirst(script.prefixedSize)
 
-        guard let sequence = InputSequence(data) else { return nil }
+        guard let sequence = TxSequence(data) else { return nil }
 
         self.init(outpoint: outpoint, sequence: sequence, script: script)
     }
@@ -64,6 +64,6 @@ extension TxIn {
 
     /// Used by ``BitcoinTx/size``.
     var size: Int {
-        TxOutpoint.size + script.prefixedSize + InputSequence.size
+        TxOutpoint.size + script.prefixedSize + TxSequence.size
     }
 }

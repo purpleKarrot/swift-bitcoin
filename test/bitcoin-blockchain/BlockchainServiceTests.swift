@@ -120,7 +120,7 @@ struct BlockchainServiceTests {
         let sighash = SigHash(tx: unsignedTx, txIn: 0, prevout: prevout).value
 
         // Obtain the signature using our secret key and append the signature hash type.
-        let sig = Signature(hash: sighash, secretKey: secretKey)
+        let sig = AnySig(hash: sighash, secretKey: secretKey)
         let sigData = ExtendedSig(sig, .all).data
 
         // Sign our input by including the signature and public key.

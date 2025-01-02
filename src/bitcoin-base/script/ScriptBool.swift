@@ -1,7 +1,7 @@
 import Foundation
 
 /// A boolean value in the context of SCRIPT execution.
-struct ScriptBoolean: Equatable {
+struct ScriptBool: Equatable {
 
     static let `false` = Self(false)
     static let `true` = Self(true)
@@ -12,12 +12,12 @@ struct ScriptBoolean: Equatable {
         self.value = value
     }
 
-    func and(_ b: ScriptBoolean) -> ScriptBoolean {
+    func and(_ b: ScriptBool) -> ScriptBool {
         Self(value && b.value)
     }
 }
 
-extension ScriptBoolean {
+extension ScriptBool {
 
     init(_ data: Data) {
         let firstNonZeroIndex = data.firstIndex { $0 != 0 }

@@ -78,7 +78,7 @@ public class TxSigner {
                 tx.ins[txIn].script = [.encodeMinimally(redeemScriptP2WSH.data)]
             }
         } else {
-            let unlockScript = BitcoinScript([.zero] + sigs.map { ScriptOperation.encodeMinimally($0) })
+            let unlockScript = BitcoinScript([.zero] + sigs.map { ScriptOp.encodeMinimally($0) })
             tx.ins[txIn].script = unlockScript
         }
         return tx
@@ -130,7 +130,7 @@ public class TxSigner {
             tx.ins[txIn].witness = .init(witnessData)
         }
         if lockScript.isPayToPublicKey || lockScript.isPayToPublicKeyHash {
-            let ops = witnessData.map { ScriptOperation.pushBytes($0) }
+            let ops = witnessData.map { ScriptOp.pushBytes($0) }
             tx.ins[txIn].script = .init(ops)
         }
         if lockScript.isPayToScriptHash {

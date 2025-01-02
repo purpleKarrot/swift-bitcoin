@@ -198,7 +198,7 @@ extension BitcoinTx {
         // BIP144
         if isSegwit {
             for i in ins.indices {
-                guard let witness = InputWitness(data) else { return nil }
+                guard let witness = TxWitness(data) else { return nil }
                 data = data.dropFirst(witness.size)
                 let txIn = ins[i]
                 ins[i] = .init(outpoint: txIn.outpoint, sequence: txIn.sequence, script: txIn.script, witness: witness)

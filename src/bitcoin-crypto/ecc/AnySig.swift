@@ -8,7 +8,7 @@ public enum SigType: Equatable, Sendable {
 }
 
 /// Elliptic curve SECP256K1 signature supporting both ECDSA and Schnorr algorithms.
-public struct Signature: Equatable, Sendable, CustomStringConvertible {
+public struct AnySig: Equatable, Sendable, CustomStringConvertible {
 
     public init?(message: String, secretKey: SecretKey, type: SigType = .ecdsa, recoverCompressedKeys: Bool = true) {
         guard let messageData = message.data(using: .utf8) else {
@@ -154,8 +154,8 @@ public struct Signature: Equatable, Sendable, CustomStringConvertible {
         precondition(type == .ecdsa)
 
         // Minimum and maximum size constraints.
-        guard data.count >= Signature.ecdsaSignatureMinLength &&
-                data.count <= Signature.ecdsaSignatureMaxLength else {
+        guard data.count >= AnySig.ecdsaSignatureMinLength &&
+                data.count <= AnySig.ecdsaSignatureMaxLength else {
             return false
         }
 
@@ -264,7 +264,7 @@ private func signRecoverable(hash: Data, secretKey: SecretKey, compressedPublicK
         preconditionFailure()
     }
 
-    var sigBytes = [UInt8](repeating: 0, count: Signature.recoverableSignatureLength)
+    var sigBytes = [UInt8](repeating: 0, count: AnySig.recoverableSignatureLength)
     var rec: Int32 = -1
     guard secp256k1_ecdsa_recoverable_signature_serialize_compact(eccSigningContext, &sigBytes[1], &rec, &rsig) != 0 else {
         preconditionFailure()
@@ -293,7 +293,7 @@ private func signRecoverable(hash: Data, secretKey: SecretKey, compressedPublicK
 
 /// Recovers public key from signature which also verifies the signature as valid.
 private func internalRecoverPublicKey(sigData: Data, hash: Data) -> Data? {
-    precondition(sigData.count == Signature.recoverableSignatureLength) // throw?
+    precondition(sigData.count == AnySig.recoverableSignatureLength) // throw?
 
     // TODO: Make it so that we respect the data index.
     assert(sigData.startIndex == 0)
@@ -339,7 +339,7 @@ private func signCompact(hash: Data, secretKey: SecretKey) -> Data {
     let hash = [UInt8](hash)
     let secretKeyBytes = [UInt8](secretKey.data)
 
-    precondition(hash.count == Signature.hashLength)
+    precondition(hash.count == AnySig.hashLength)
     precondition(secretKeyBytes.count == SecretKey.keyLength)
 
     let testCase = UInt32(0)
@@ -365,12 +365,12 @@ private func signCompact(hash: Data, secretKey: SecretKey) -> Data {
         preconditionFailure()
     }
 
-    var sigBytes = [UInt8](repeating: 0, count: Signature.compactSignatureLength)
+    var sigBytes = [UInt8](repeating: 0, count: AnySig.compactSignatureLength)
     guard secp256k1_ecdsa_signature_serialize_compact(secp256k1_context_static, &sigBytes, &sig) != 0 else {
         preconditionFailure()
     }
 
-    precondition(sigBytes.count == Signature.compactSignatureLength)
+    precondition(sigBytes.count == AnySig.compactSignatureLength)
     return Data(sigBytes)
 }
 
@@ -379,8 +379,8 @@ private func verifyCompact(sigData: Data, hash: Data, publicKey: PublicKey) -> B
     let hash = [UInt8](hash)
     let publicKeyBytes = [UInt8](publicKey.data)
 
-    precondition(sigData.count == Signature.compactSignatureLength)
-    precondition(hash.count == Signature.hashLength)
+    precondition(sigData.count == AnySig.compactSignatureLength)
+    precondition(hash.count == AnySig.hashLength)
 
     var sig = secp256k1_ecdsa_signature()
     guard secp256k1_ecdsa_signature_parse_compact(secp256k1_context_static, &sig, sigBytes) != 0 else {
@@ -399,7 +399,7 @@ private func verifyCompact(sigData: Data, hash: Data, publicKey: PublicKey) -> B
 
 /// Requires global signing context to be initialized.
 private func signSchnorr(hash: Data, secretKey: SecretKey, additionalEntropy: Data?) -> Data {
-    precondition(hash.count == Signature.hashLength)
+    precondition(hash.count == AnySig.hashLength)
 
     let hashBytes = [UInt8](hash)
     let secretKeyBytes = [UInt8](secretKey.data)
@@ -423,7 +423,7 @@ private func signSchnorr(hash: Data, secretKey: SecretKey, additionalEntropy: Da
         preconditionFailure()
     }
 
-    guard secp256k1_schnorrsig_verify(secp256k1_context_static, sigOut, hashBytes, Signature.hashLength, &xonlyPubkey) != 0 else {
+    guard secp256k1_schnorrsig_verify(secp256k1_context_static, sigOut, hashBytes, AnySig.hashLength, &xonlyPubkey) != 0 else {
         preconditionFailure()
     }
 
@@ -432,8 +432,8 @@ private func signSchnorr(hash: Data, secretKey: SecretKey, additionalEntropy: Da
 
 private func verifySchnorr(sigData: Data, hash: Data, publicKey: PublicKey) -> Bool {
 
-    precondition(sigData.count == Signature.schnorrSignatureLength)
-    precondition(hash.count == Signature.hashLength)
+    precondition(sigData.count == AnySig.schnorrSignatureLength)
+    precondition(hash.count == AnySig.hashLength)
     // guard !publicKeyData.isEmpty else { return false }
 
     let sigBytes = [UInt8](sigData)
@@ -452,7 +452,7 @@ private func verifySchnorr(sigData: Data, hash: Data, publicKey: PublicKey) -> B
 /// Requires global signing context to be initialized.
 private func signECDSA(hash: Data, secretKey: SecretKey, requireLowR: Bool = true) -> Data {
 
-    precondition(hash.count == Signature.hashLength)
+    precondition(hash.count == AnySig.hashLength)
 
     let hashBytes = [UInt8](hash)
     let secretKeyBytes = [UInt8](secretKey.data)
@@ -471,7 +471,7 @@ private func signECDSA(hash: Data, secretKey: SecretKey, requireLowR: Bool = tru
     }
     precondition(success)
 
-    var sigBytes = [UInt8](repeating: 0, count: Signature.ecdsaSignatureMaxLength)
+    var sigBytes = [UInt8](repeating: 0, count: AnySig.ecdsaSignatureMaxLength)
     var sigBytesCount = sigBytes.count
     guard secp256k1_ecdsa_signature_serialize_der(secp256k1_context_static, &sigBytes, &sigBytesCount, &sig) != 0 else {
         preconditionFailure()
