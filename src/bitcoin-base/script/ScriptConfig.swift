@@ -64,7 +64,7 @@ public struct ScriptConfig: OptionSet, Sendable {
     public static let witness = Self(rawValue: 1 << 12)
 
     /// BIP141: Only compressed public keys are accepted in P2WPKH and P2WSH (See BIP143). Relay/mining policy rule 1.
-    public static let witnessCompressedPublicKey = Self(rawValue: 1 << 13)
+    public static let witnessCompressedPubkey = Self(rawValue: 1 << 13)
 
     /// BIP141: The argument of OP_IF/NOTIF in P2WSH must be minimal. Relay/mining policy rule 2.
     public static let minimalIf = Self(rawValue: 1 << 14)
@@ -85,10 +85,10 @@ public struct ScriptConfig: OptionSet, Sendable {
     public static let discourageOpSuccess = Self(rawValue: 1 << 19)
 
     /// Making unknown public key versions (in BIP342 scripts) non-standard.
-    public static let discourageUpgradablePublicKeyType = Self(rawValue: 1 << 20)
+    public static let discourageUpgradablePubkeyType = Self(rawValue: 1 << 20)
 
     /// Standard script verification flags that standard transactions will comply with. However we do not ban/disconnect nodes that forward txs violating the additional (non-mandatory) rules here, to improve forwards and backwards compatability.
-    public static let standard: Self = [.strictDER, .pushOnly, .minimalData, .lowS, .cleanStack, .nullDummy, .strictEncoding, .payToScriptHash, .checkLockTimeVerify, .checkSequenceVerify, .discourageUpgradableNoOps, .constantScriptCode, .witness, .witnessCompressedPublicKey, .minimalIf, .nullFail, .discourageUpgradableWitnessProgram, .taproot, .discourageUpgradableTaprootVersion, .discourageOpSuccess, .discourageUpgradablePublicKeyType]
+    public static let standard: Self = [.strictDER, .pushOnly, .minimalData, .lowS, .cleanStack, .nullDummy, .strictEncoding, .payToScriptHash, .checkLockTimeVerify, .checkSequenceVerify, .discourageUpgradableNoOps, .constantScriptCode, .witness, .witnessCompressedPubkey, .minimalIf, .nullFail, .discourageUpgradableWitnessProgram, .taproot, .discourageUpgradableTaprootVersion, .discourageOpSuccess, .discourageUpgradablePubkeyType]
 
     /// Mandatory script verification flags that all new transactions must comply with for them to be valid. Failing one of these tests may trigger a DoS ban. See `CheckInputScripts()` on Bitcoin Core  for details.
     /// Note that this does not affect consensus validity. See `GetBlockScriptFlags()` for that.

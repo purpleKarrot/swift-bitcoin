@@ -33,8 +33,8 @@ struct MessageVerify: ParsableCommand {
         guard let sig = AnySig(sigData, type: .recoverable) else {
             throw ValidationError("Invalid signature data: signature")
         }
-        let result = if let publicKey = sig.recoverPublicKey(messageData: messageData) {
-            Data(Hash160.hash(data: publicKey.data)) == address.hash
+        let result = if let pubkey = sig.recoverPubkey(messageData: messageData) {
+            Data(Hash160.hash(data: pubkey.data)) == address.hash
         } else {
             false
         }

@@ -93,11 +93,11 @@ public class TxSigner {
     public func sign(txIn: Int, with secretKey: SecretKey) -> BitcoinTx {
         let lockScript = hasher.prevouts[txIn].script
 
-        let publicKeyHash = Data(Hash160.hash(data: secretKey.publicKey.data))
-        let redeemScript = BitcoinScript.payToWitnessPublicKeyHash(publicKeyHash)
+        let pubkeyHash = Data(Hash160.hash(data: secretKey.pubkey.data))
+        let redeemScript = BitcoinScript.payToWitnessPubkeyHash(pubkeyHash)
 
         precondition(
-            lockScript.isPayToPublicKey || lockScript.isPayToPublicKeyHash || lockScript.isPayToWitnessKeyHash || lockScript.isPayToTaproot || (
+            lockScript.isPayToPubkey || lockScript.isPayToPubkeyHash || lockScript.isPayToWitnessKeyHash || lockScript.isPayToTaproot || (
                 lockScript == .payToScriptHash(redeemScript)
         ))
 
@@ -106,7 +106,7 @@ public class TxSigner {
                          else { .base }
 
         let scriptCode: Data? = if lockScript.isPayToScriptHash {
-            BitcoinScript.segwitPKHScriptCode(publicKeyHash).data
+            BitcoinScript.segwitPKHScriptCode(pubkeyHash).data
         } else { .none }
 
         hasher.set(txIn: txIn, sigVersion: sigVersion, scriptCode: scriptCode)
@@ -121,15 +121,15 @@ public class TxSigner {
         let sigExt = ExtendedSig(sig, hasher.sighashType)
         // For pay-to-public key we just need to sign the hash and add the signature to the input's unlock script.
         var witnessData = [sigExt.data]
-        if lockScript.isPayToPublicKeyHash || lockScript.isPayToWitnessKeyHash || lockScript.isPayToScriptHash {
+        if lockScript.isPayToPubkeyHash || lockScript.isPayToWitnessKeyHash || lockScript.isPayToScriptHash {
             // For pay-to-public-key-hash we need to also add the public key to the unlock script.
-            witnessData.append(secretKey.publicKey.data)
+            witnessData.append(secretKey.pubkey.data)
         }
         if lockScript.isPayToWitnessKeyHash || lockScript.isPayToScriptHash || lockScript.isPayToTaproot {
             // For pay-to-witness-public-key-hash we sign a different hash and we add the signature and public key to the input's _witness_.
             tx.ins[txIn].witness = .init(witnessData)
         }
-        if lockScript.isPayToPublicKey || lockScript.isPayToPublicKeyHash {
+        if lockScript.isPayToPubkey || lockScript.isPayToPubkeyHash {
             let ops = witnessData.map { ScriptOp.pushBytes($0) }
             tx.ins[txIn].script = .init(ops)
         }

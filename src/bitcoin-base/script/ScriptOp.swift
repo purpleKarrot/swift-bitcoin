@@ -57,7 +57,7 @@ public enum ScriptOp: Equatable, Sendable {
                 if data.first! >= 1 && data.first! <= 16 {
                     return false
                 }
-                if data == ScriptNumber.negativeOne.data {
+                if data == ScriptNum.negativeOne.data {
                     return false
                 }
                 return true
@@ -343,7 +343,7 @@ public enum ScriptOp: Equatable, Sendable {
         case 1...16:
             return .constant(UInt8(value))
         default:
-            guard let number = try? ScriptNumber(value) else {
+            guard let number = try? ScriptNum(value) else {
                 preconditionFailure()
             }
             return encodeMinimally(number.data)

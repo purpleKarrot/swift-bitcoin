@@ -85,8 +85,8 @@ extension TxInfo {
 
             enum LockType: String, Equatable, Decodable {
                 case nonStandard = "nonstandard",
-                     publicKey = "pubkey",
-                     publicKeyHash = "pubkeyhash",
+                     pubkey = "pubkey",
+                     pubkeyHash = "pubkeyhash",
                      scriptHash = "scripthash",
                      multiSig = "multisig",
                      nullData = "nulldata",

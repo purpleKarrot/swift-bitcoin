@@ -48,7 +48,7 @@ struct BlockTests {
         // publicKEy = `bcutil ec-to-public $secretKey`
         // 035ac9d1487868eca64e932a06ee8d6d2e89d98659db7f247410d3e79f88f8d005
         //
-        // address = `bcutil ec-to-address -n test $publicKey`
+        // address = `bcutil ec-to-address -n test $pubkey`
         // miueyHbQ33FDcjCYZpVJdC7VBbaVQzAUg5
         //
         // blockHash = `bitcoin-cli generatetoaddress 1 $address`
@@ -132,8 +132,8 @@ struct BlockTests {
 
         await service.createGenesisBlock()
 
-        let publicKey = try #require(PublicKey(compressed: [0x03, 0x5a, 0xc9, 0xd1, 0x48, 0x78, 0x68, 0xec, 0xa6, 0x4e, 0x93, 0x2a, 0x06, 0xee, 0x8d, 0x6d, 0x2e, 0x89, 0xd9, 0x86, 0x59, 0xdb, 0x7f, 0x24, 0x74, 0x10, 0xd3, 0xe7, 0x9f, 0x88, 0xf8, 0xd0, 0x05])) // Testnet p2pkh address  miueyHbQ33FDcjCYZpVJdC7VBbaVQzAUg5
-        await service.generateTo(publicKey, blockTime: .init(timeIntervalSince1970: 1704890713))
+        let pubkey = try #require(PubKey(compressed: [0x03, 0x5a, 0xc9, 0xd1, 0x48, 0x78, 0x68, 0xec, 0xa6, 0x4e, 0x93, 0x2a, 0x06, 0xee, 0x8d, 0x6d, 0x2e, 0x89, 0xd9, 0x86, 0x59, 0xdb, 0x7f, 0x24, 0x74, 0x10, 0xd3, 0xe7, 0x9f, 0x88, 0xf8, 0xd0, 0x05])) // Testnet p2pkh address  miueyHbQ33FDcjCYZpVJdC7VBbaVQzAUg5
+        await service.generateTo(pubkey, blockTime: .init(timeIntervalSince1970: 1704890713))
 
         let block = await service.getBlock(1)
         let coinbaseTx = block.txs[0]

@@ -10,13 +10,13 @@ public struct LegacyAddress: BitcoinAddress {
     public let hash: Data
 
     public init(_ secretKey: SecretKey, mainnet: Bool = true) {
-        self.init(secretKey.publicKey, mainnet: mainnet)
+        self.init(secretKey.pubkey, mainnet: mainnet)
     }
 
-    public init(_ publicKey: PublicKey, mainnet: Bool = true) {
+    public init(_ pubkey: PubKey, mainnet: Bool = true) {
         isMainnet = mainnet
         isScript = false
-        hash = Data(Hash160.hash(data: publicKey.data))
+        hash = Data(Hash160.hash(data: pubkey.data))
     }
 
     public init(_ script: BitcoinScript, mainnet: Bool = true) {
@@ -53,7 +53,7 @@ public struct LegacyAddress: BitcoinAddress {
         if isScript {
             .payToScriptHash(hash)
         } else {
-            .payToPublicKeyHash(hash)
+            .payToPubkeyHash(hash)
         }
     }
 

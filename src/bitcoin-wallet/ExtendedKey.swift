@@ -5,7 +5,7 @@ import BitcoinCrypto
 public struct ExtendedKey {
     public let isMainnet: Bool
     public let secretKey: SecretKey?
-    public let publicKey: PublicKey?
+    public let pubkey: PubKey?
     public let chaincode: Data
     public let fingerprint: Int
     public let depth: Int
@@ -26,8 +26,8 @@ public struct ExtendedKey {
         try self.init(secretKey: secretKey, chaincode: chaincode, fingerprint: 0, depth: 0, keyIndex: 0, mainnet: mainnet)
     }
 
-    private init(secretKey: SecretKey? = .none, publicKey: PublicKey? = .none, chaincode: Data, fingerprint: Int, depth: Int, keyIndex: Int, mainnet: Bool) throws {
-        guard secretKey == .none && publicKey != .none || (secretKey != .none && publicKey == .none) else {
+    private init(secretKey: SecretKey? = .none, pubkey: PubKey? = .none, chaincode: Data, fingerprint: Int, depth: Int, keyIndex: Int, mainnet: Bool) throws {
+        guard secretKey == .none && pubkey != .none || (secretKey != .none && pubkey == .none) else {
             preconditionFailure()
         }
 
@@ -39,7 +39,7 @@ public struct ExtendedKey {
         }
         self.isMainnet = mainnet
         self.secretKey = secretKey
-        self.publicKey = publicKey
+        self.pubkey = pubkey
         self.chaincode = chaincode
         self.fingerprint = fingerprint
         self.depth = depth
@@ -54,9 +54,9 @@ public struct ExtendedKey {
     }
 
     public var hasSecretKey: Bool {
-        if secretKey != nil && publicKey == nil {
+        if secretKey != nil && pubkey == nil {
             true
-        } else if secretKey == nil && publicKey != nil {
+        } else if secretKey == nil && pubkey != nil {
             false
         } else {
             fatalError()
@@ -80,15 +80,15 @@ public struct ExtendedKey {
 
         let keyIndex = harden ? (1 << 31) + child : child
         let depth = depth + 1
-        let publicKey = if let secretKey {
-            PublicKey(secretKey)
-        } else if let publicKey {
-            publicKey
+        let pubkey = if let secretKey {
+            PubKey(secretKey)
+        } else if let pubkey {
+            pubkey
         } else {
             fatalError()
         }
-        let publicKeyID = Data(Hash160.hash(data: publicKey.data))
-        let fingerprint = publicKeyID.withUnsafeBytes {
+        let pubkeyID = Data(Hash160.hash(data: pubkey.data))
+        let fingerprint = pubkeyID.withUnsafeBytes {
             $0.loadUnaligned(as: UInt32.self)
         }
 
@@ -97,9 +97,9 @@ public struct ExtendedKey {
         var hmac = HMAC<SHA512>(key: .init(data: chaincode))
         if keyIndex >> 31 == 0 {
             // Unhardened derivation
-            var publicKeyData = publicKey.data
-            publicKeyData.appendBytes(UInt32(keyIndex).bigEndian)
-            hmac.update(data: publicKeyData)
+            var pubkeyData = pubkey.data
+            pubkeyData.appendBytes(UInt32(keyIndex).bigEndian)
+            hmac.update(data: pubkeyData)
         } else if let secretKey {
             // Hardened derivation
             var privateKeyData = Data([0x00])
@@ -116,11 +116,11 @@ public struct ExtendedKey {
             secretKey.tweak(tweak)
         } else { .none }
 
-        let newPublicKey: PublicKey? = if let publicKey = self.publicKey {
-            publicKey.tweak(tweak)
+        let newPubkey: PubKey? = if let pubkey = self.pubkey {
+            pubkey.tweak(tweak)
         } else { .none }
 
-        guard let ret = try? Self(secretKey: newSecretKey, publicKey: newPublicKey, chaincode: chaincode, fingerprint: Int(fingerprint), depth: depth, keyIndex: keyIndex, mainnet: isMainnet) else {
+        guard let ret = try? Self(secretKey: newSecretKey, pubkey: newPubkey, chaincode: chaincode, fingerprint: Int(fingerprint), depth: depth, keyIndex: keyIndex, mainnet: isMainnet) else {
             preconditionFailure()
         }
         return ret
@@ -129,8 +129,8 @@ public struct ExtendedKey {
     /// Turns a private key into a public key removing its ability to produce signatures.
     public var neutered: Self {
         guard let secretKey else { preconditionFailure() }
-        let publicKey = PublicKey(secretKey)
-        guard let ret = try? Self(secretKey: .none, publicKey: publicKey, chaincode: chaincode, fingerprint: fingerprint, depth: depth, keyIndex: keyIndex, mainnet: isMainnet) else {
+        let pubkey = PubKey(secretKey)
+        guard let ret = try? Self(secretKey: .none, pubkey: pubkey, chaincode: chaincode, fingerprint: fingerprint, depth: depth, keyIndex: keyIndex, mainnet: isMainnet) else {
             preconditionFailure()
         }
         return ret
@@ -183,7 +183,7 @@ public extension ExtendedKey {
         data = data.dropFirst(32)
 
         var secretKey = SecretKey?.none
-        var publicKey = PublicKey?.none
+        var pubkey = PubKey?.none
         if isPrivate {
             guard let len = data.first, len == 0 else {
                 throw Error.invalidPrivateKeyLength
@@ -194,17 +194,17 @@ public extension ExtendedKey {
             }
             secretKey = parsedSecretKey
         } else {
-            let publicKeyData = data.prefix(PublicKey.compressedLength)
-            guard let parsedPublicKey = PublicKey(publicKeyData, skipCheck: true) else {
+            let pubkeyData = data.prefix(PubKey.compressedLength)
+            guard let parsedPubkey = PubKey(pubkeyData, skipCheck: true) else {
                 throw Error.invalidPublicKeyEncoding
             }
-            guard parsedPublicKey.check() else {
+            guard parsedPubkey.check() else {
                 throw Error.invalidPublicKey
             }
-            publicKey = parsedPublicKey
+            pubkey = parsedPubkey
         }
-        data = data.dropFirst(PublicKey.compressedLength)
-        try self.init(secretKey: secretKey, publicKey: publicKey, chaincode: chaincode, fingerprint: Int(fingerprint), depth: Int(depth), keyIndex: Int(keyIndex), mainnet: mainnet)
+        data = data.dropFirst(PubKey.compressedLength)
+        try self.init(secretKey: secretKey, pubkey: pubkey, chaincode: chaincode, fingerprint: Int(fingerprint), depth: Int(depth), keyIndex: Int(keyIndex), mainnet: mainnet)
     }
 
     var versionData: Data {
@@ -228,8 +228,8 @@ public extension ExtendedKey {
         if let secretKey {
             offset = ret.addData([0], at: offset)
             ret.addData(secretKey.data, at: offset)
-        } else if let publicKey {
-            ret.addData(publicKey.data, at: offset)
+        } else if let pubkey {
+            ret.addData(pubkey.data, at: offset)
         } else {
             fatalError()
         }

@@ -30,12 +30,12 @@ public struct SegwitAddress: BitcoinAddress {
     public let hash: Data
 
     public init(_ secretKey: SecretKey, network: WalletNetwork = .main) {
-        self.init(secretKey.publicKey, network: network)
+        self.init(secretKey.pubkey, network: network)
     }
 
-    public init(_ publicKey: PublicKey, network: WalletNetwork = .main) {
+    public init(_ pubkey: PubKey, network: WalletNetwork = .main) {
         self.network = network
-        hash = Data(Hash160.hash(data: publicKey.data))
+        hash = Data(Hash160.hash(data: pubkey.data))
     }
 
     public init(_ script: BitcoinScript, network: WalletNetwork = .main) {
@@ -49,7 +49,7 @@ public struct SegwitAddress: BitcoinAddress {
 
     public var script: BitcoinScript {
         if hash.count == RIPEMD160.Digest.byteCount {
-            .payToWitnessPublicKeyHash(hash)
+            .payToWitnessPubkeyHash(hash)
         } else {
             .payToWitnessScriptHash(hash)
         }

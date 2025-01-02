@@ -31,8 +31,8 @@ Let's start by generating a key pair and derive an address for our test.
 ```swift
 // Generate a secret key, corresponding public key, hash and address.
 let secretKey = SecretKey()
-let publicKey = secretKey.publicKey
-let address = LegacyAddress(publicKey)
+let pubkey = secretKey.pubkey
+let address = LegacyAddress(pubkey)
 ```
 
 Prepare the Blockchain service.
@@ -43,7 +43,7 @@ let blockchain = BlockchainService()
 
 // Mine 100 blocks so block 1's coinbase output reaches maturity.
 for _ in 0 ..< 100 {
-    await blockchain.generateTo(publicKey)
+    await blockchain.generateTo(pubkey)
 }
 ```
 
@@ -94,10 +94,10 @@ After confirming the transaction was accepted we can mine a block and get it con
 // Let's mine another block to confirm our transaction.
 
 // In this case we can re-use the address we created before.
-let publicKeyHash = Data(Hash160.hash(data: publicKey.data))
+let pubkeyHash = Data(Hash160.hash(data: pubkey.data))
 
 // Minde to the public key hash
-await blockchain.generateTo(publicKeyHash)
+await blockchain.generateTo(pubkeyHash)
 
 // The mempool should now be empty.
 #expect(await blockchain.mempool.count == 0)

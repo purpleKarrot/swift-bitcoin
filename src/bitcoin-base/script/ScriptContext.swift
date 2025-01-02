@@ -344,10 +344,10 @@ public struct ScriptContext {
         }
     }
 
-    mutating func getUnaryNumericParam() throws -> ScriptNumber {
+    mutating func getUnaryNumericParam() throws -> ScriptNum {
         let first = try getUnaryParam()
         let minimal = config.contains(.minimalData)
-        let a = try ScriptNumber(first, minimal: minimal)
+        let a = try ScriptNum(first, minimal: minimal)
         return a
     }
 
@@ -359,11 +359,11 @@ public struct ScriptContext {
         return param
     }
 
-    mutating func getBinaryNumericParams() throws -> (ScriptNumber, ScriptNumber) {
+    mutating func getBinaryNumericParams() throws -> (ScriptNum, ScriptNum) {
         let (first, second) = try getBinaryParams()
         let minimal = config.contains(.minimalData)
-        let a = try ScriptNumber(first, minimal: minimal)
-        let b = try ScriptNumber(second, minimal: minimal)
+        let a = try ScriptNum(first, minimal: minimal)
+        let b = try ScriptNum(second, minimal: minimal)
         return (a, b)
     }
 
@@ -376,12 +376,12 @@ public struct ScriptContext {
         return (first, second)
     }
 
-    mutating func getTernaryNumericParams() throws -> (ScriptNumber, ScriptNumber, ScriptNumber) {
+    mutating func getTernaryNumericParams() throws -> (ScriptNum, ScriptNum, ScriptNum) {
         let (first, second, third) = try getTernaryParams()
         let minimal = config.contains(.minimalData)
-        let a = try ScriptNumber(first, minimal: minimal)
-        let b = try ScriptNumber(second, minimal: minimal)
-        let c = try ScriptNumber(third, minimal: minimal)
+        let a = try ScriptNum(first, minimal: minimal)
+        let b = try ScriptNum(second, minimal: minimal)
+        let c = try ScriptNum(third, minimal: minimal)
         return (a, b, c)
     }
 

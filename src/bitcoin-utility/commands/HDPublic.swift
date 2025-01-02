@@ -13,15 +13,15 @@ struct HDPublic: ParsableCommand {
     var index = 0
 
     @Argument(help: "The parent HD public key.")
-    var publicKey: String
+    var pubkey: String
 
     mutating func run() throws {
-        let extendedKeySerialized = publicKey
+        let extendedKeySerialized = pubkey
         guard let extendedKey = try? ExtendedKey(extendedKeySerialized) else {
             throw ValidationError("Invalid extended private key format: extendedKey")
         }
         guard !extendedKey.hasSecretKey else {
-            throw ValidationError("Invalid extended public key type: publicKey")
+            throw ValidationError("Invalid extended public key type: pubkey")
         }
         let result = extendedKey.derive(child: index).serialized
         print(result)

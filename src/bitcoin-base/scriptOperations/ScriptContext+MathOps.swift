@@ -4,7 +4,7 @@ extension ScriptContext {
 
     /// The number -1 is pushed onto the stack.
     mutating func op1Negate() {
-        stack.append(ScriptNumber.negativeOne.data)
+        stack.append(ScriptNum.negativeOne.data)
     }
 
     /// The input is made positive.
@@ -39,8 +39,8 @@ extension ScriptContext {
 
     /// a is added to b.
     mutating func opAdd() throws {
-        var a: ScriptNumber
-        let b: ScriptNumber
+        var a: ScriptNum
+        let b: ScriptNum
         (a, b) = try getBinaryNumericParams()
         try a.add(b)
         stack.append(a.data)

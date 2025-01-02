@@ -10,10 +10,10 @@ struct BlockchainServiceTests {
     @Test("Dual blockchain synchronization")
     func dualBlockchainSync() async throws {
         let secretKey = SecretKey()
-        let publicKey = secretKey.publicKey
+        let pubkey = secretKey.pubkey
 
         let alice = BlockchainService()
-        await alice.generateTo(publicKey)
+        await alice.generateTo(pubkey)
 
         let bob = BlockchainService()
 
@@ -38,14 +38,14 @@ struct BlockchainServiceTests {
     @Test("Blockchain synchronization with traffic limit")
     func tafficLimitBlockchainSync() async throws {
         let secretKey = SecretKey()
-        let publicKey = secretKey.publicKey
+        let pubkey = secretKey.pubkey
 
         let alice = BlockchainService()
 
         let bob = BlockchainService()
-        await bob.generateTo(publicKey)
-        await bob.generateTo(publicKey)
-        await bob.generateTo(publicKey)
+        await bob.generateTo(pubkey)
+        await bob.generateTo(pubkey)
+        await bob.generateTo(pubkey)
 
         let aliceLocator = await alice.makeBlockLocator()
         #expect(aliceLocator.count == 1)
@@ -89,7 +89,7 @@ struct BlockchainServiceTests {
 
         // Generate a secret key, corresponding public key, hash and address.
         let secretKey = SecretKey()
-        let publicKey = secretKey.publicKey
+        let pubkey = secretKey.pubkey
 
         // Instantiate a fresh Bitcoin service (regtest).
         let service = BlockchainService()
@@ -99,7 +99,7 @@ struct BlockchainServiceTests {
 
         // Mine 100 blocks so block 1's coinbase output reaches maturity.
         for _ in 0 ..< 100 {
-            await service.generateTo(publicKey)
+            await service.generateTo(pubkey)
         }
 
         // Grab block 1's coinbase transaction and output.
@@ -113,7 +113,7 @@ struct BlockchainServiceTests {
         let unsignedTx = BitcoinTx(
             ins: [unsignedInput],
             outs: [
-                .init(value: 49_99_999_000, script: .payToPublicKeyHash(publicKey))
+                .init(value: 49_99_999_000, script: .payToPubkeyHash(pubkey))
             ])
 
         // Sign the transaction by first calculating the signature hash.
@@ -129,7 +129,7 @@ struct BlockchainServiceTests {
             sequence: unsignedInput.sequence,
             script: .init([
                 .pushBytes(sigData),
-                .pushBytes(publicKey.data)
+                .pushBytes(pubkey.data)
             ]),
             witness: unsignedInput.witness)
 
@@ -149,7 +149,7 @@ struct BlockchainServiceTests {
         #expect(mempoolBefore == 1)
 
         // Let's mine another block to confirm our transaction.
-        await service.generateTo(publicKey)
+        await service.generateTo(pubkey)
         let mempoolAfter = await service.mempool.count
 
         // Verify the mempool is empty once again.
@@ -200,11 +200,11 @@ struct BlockchainServiceTests {
         var calendar = Calendar(identifier: .iso8601)
         calendar.timeZone = .gmt
 
-        let publicKey = try #require(PublicKey(compressed: [0x03, 0x5a, 0xc9, 0xd1, 0x48, 0x78, 0x68, 0xec, 0xa6, 0x4e, 0x93, 0x2a, 0x06, 0xee, 0x8d, 0x6d, 0x2e, 0x89, 0xd9, 0x86, 0x59, 0xdb, 0x7f, 0x24, 0x74, 0x10, 0xd3, 0xe7, 0x9f, 0x88, 0xf8, 0xd0, 0x05])) // Testnet p2pkh address  miueyHbQ33FDcjCYZpVJdC7VBbaVQzAUg5
+        let pubkey = try #require(PubKey(compressed: [0x03, 0x5a, 0xc9, 0xd1, 0x48, 0x78, 0x68, 0xec, 0xa6, 0x4e, 0x93, 0x2a, 0x06, 0xee, 0x8d, 0x6d, 0x2e, 0x89, 0xd9, 0x86, 0x59, 0xdb, 0x7f, 0x24, 0x74, 0x10, 0xd3, 0xe7, 0x9f, 0x88, 0xf8, 0xd0, 0x05])) // Testnet p2pkh address  miueyHbQ33FDcjCYZpVJdC7VBbaVQzAUg5
         for i in 1...15 {
             let minutes = if i < 5 { 4 } else if i < 10 { 2 } else { 4 }
             date = calendar.date(byAdding: .minute, value: minutes, to: date)!
-            await service.generateTo(publicKey, blockTime: date)
+            await service.generateTo(pubkey, blockTime: date)
             let header = await service.blocks.last!
             let expectedTarget = if (1...4).contains(i) {
                 0x207fffff // 0x7fffff0000000000000000000000000000000000000000000000000000000000 DifficultyTarget(compact: block.target).data.reversed().hex

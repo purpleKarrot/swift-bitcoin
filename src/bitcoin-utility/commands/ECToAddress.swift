@@ -18,23 +18,23 @@ struct ECToAddress: ParsableCommand {
     var network = WalletNetwork.main
 
     @Argument(help: "A valid DER-encoded compressed/uncompressed public key in hex format.")
-    var publicKey: String
+    var pubkey: String
 
     mutating func run() throws {
-        let publicKeyHex = publicKey
-        guard let publicKeyData = Data(hex: publicKeyHex) else {
-            throw ValidationError("Invalid hexadecimal value: publicKey")
+        let pubkeyHex = pubkey
+        guard let pubkeyData = Data(hex: pubkeyHex) else {
+            throw ValidationError("Invalid hexadecimal value: pubkey")
         }
-        guard let publicKey = PublicKey(publicKeyData) else {
-            throw ValidationError("Invalid public key data: publicKey")
+        guard let pubkey = PubKey(pubkeyData) else {
+            throw ValidationError("Invalid public key data: pubkey")
         }
         let result = switch sigVersion {
         case .base:
-            LegacyAddress(publicKey, mainnet: network == .main).description
+            LegacyAddress(pubkey, mainnet: network == .main).description
         case .witnessV0:
-            SegwitAddress(publicKey, network: network).description
+            SegwitAddress(pubkey, network: network).description
         case .witnessV1:
-            TaprootAddress(publicKey, network: network).description
+            TaprootAddress(pubkey, network: network).description
         }
         print(result)
     }

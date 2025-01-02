@@ -92,7 +92,7 @@ public struct BitcoinScript: Equatable, Sendable {
     public static let empty = Self([])
 
     /// Maximum number of public keys per multisig.
-    static let maxMultiSigPublicKeys = 20
+    static let maxMultiSigPubkeys = 20
 
     /// Maximum number of non-push operations per script.
     static let maxOps = 201
@@ -110,15 +110,15 @@ public struct BitcoinScript: Equatable, Sendable {
 
     // MARK: - Type Methods
 
-    public static func payToPublicKey(_ publicKey: PublicKey) -> Self {
-        [.pushBytes(publicKey.data), .checkSig]
+    public static func payToPubkey(_ pubkey: PubKey) -> Self {
+        [.pushBytes(pubkey.data), .checkSig]
     }
 
-    public static func payToPublicKeyHash(_ publicKey: PublicKey) -> Self {
-        payToPublicKeyHash(Data(Hash160.hash(data: publicKey.data)))
+    public static func payToPubkeyHash(_ pubkey: PubKey) -> Self {
+        payToPubkeyHash(Data(Hash160.hash(data: pubkey.data)))
     }
 
-    package static func payToPublicKeyHash(_ hash: Data) -> Self {
+    package static func payToPubkeyHash(_ hash: Data) -> Self {
         [.dup, .hash160, .pushBytes(hash), .equalVerify, .checkSig]
     }
 
@@ -128,7 +128,7 @@ public struct BitcoinScript: Equatable, Sendable {
         return [.dup, .hash160, .pushBytes(hash), .equalVerify, .checkSig]
     }
 
-    public static func payToMultiSignature(_ threshold: Int, of keys: PublicKey...) -> Self {
+    public static func payToMultiSignature(_ threshold: Int, of keys: PubKey...) -> Self {
         precondition(keys.count <= 20 && threshold >= 0 && threshold <= keys.count)
         let keyOps = keys.map { key in
             ScriptOp.pushBytes(key.data)
@@ -148,11 +148,11 @@ public struct BitcoinScript: Equatable, Sendable {
         [.hash160, .pushBytes(hash), .equal]
     }
 
-    public static func payToWitnessPublicKeyHash(_ publicKey: PublicKey) -> Self {
-        payToWitnessPublicKeyHash(Data(Hash160.hash(data: publicKey.data)))
+    public static func payToWitnessPubkeyHash(_ pubkey: PubKey) -> Self {
+        payToWitnessPubkeyHash(Data(Hash160.hash(data: pubkey.data)))
     }
 
-    package static func payToWitnessPublicKeyHash(_ hash: Data) -> Self {
+    package static func payToWitnessPubkeyHash(_ hash: Data) -> Self {
         [.zero, .pushBytes(hash)]
     }
 
@@ -165,13 +165,13 @@ public struct BitcoinScript: Equatable, Sendable {
         [.zero, .pushBytes(hash)]
     }
 
-    public static func payToTaproot(internalKey: PublicKey, script: ScriptTree? = .none) -> Self {
+    public static func payToTaproot(internalKey: PubKey, script: ScriptTree? = .none) -> Self {
         precondition(internalKey.hasEvenY)
         let outputKey = internalKey.taprootOutputKey(script)
         return payToTaproot(outputKey)
     }
 
-    package static func payToTaproot(_ outputKey: PublicKey) -> Self {
+    package static func payToTaproot(_ outputKey: PubKey) -> Self {
         [.constant(1), .pushBytes(outputKey.xOnlyData)]
     }
 
