@@ -21,8 +21,8 @@ Encode and decode binary data into and from strings using Base58 or Bech32 encod
 ### Public-key cryptography
 
 - ``SecretKey``
-- ``Pubkey``
-- ``Signature``
+- ``PubKey``
+- ``AnySig``
 
 ### Hash functions
 
