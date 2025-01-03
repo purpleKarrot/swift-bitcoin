@@ -14,7 +14,7 @@ public struct ExtendedSig {
             return nil
         }
         self.sig = sig
-        let sighashType = SighashType(rawValue: last)
+        let sighashType = SighashType(unchecked: last)
         if !skipCheck && !sighashType.isDefined {
             return nil
         }
@@ -24,7 +24,7 @@ public struct ExtendedSig {
     init(schnorrData: Data) throws {
         var sigTmp = schnorrData
         let sighashType: SighashType?
-        if sigTmp.count == AnySig.schnorrSignatureExtendedLength, let rawValue = sigTmp.popLast(), let maybeHashType = SighashType(rawValue) {
+        if sigTmp.count == AnySig.schnorrSignatureExtendedLength, let sighashValue = sigTmp.popLast(), let maybeHashType = SighashType(sighashValue) {
             // If the sig is 65 bytes long, return sig[64] ≠ 0x00 and Verify(q, hashTapSighash(0x00 || SigMsg(sig[64], 0)), sig[0:64]).
             sighashType = maybeHashType
         } else if sigTmp.count == AnySig.schnorrSignatureLength {
