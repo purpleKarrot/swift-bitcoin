@@ -41,8 +41,8 @@ public struct ScriptContext {
     public internal(set) var stack: [Data] = []
 
     public private(set) var programCounter = 0
-    public private(set) var operationIndex = 0
-    public internal(set) var nonPushOperations = 0
+    public private(set) var opIndex = 0
+    public internal(set) var nonPushOps = 0
 
     /// BIP342: Tapscript signature operations budget.
     /// Sigops limit The sigops in tapscripts do not count towards the block-wide limit of 80000 (weighted). Instead, there is a per-script sigops budget. The budget equals 50 + the total serialized size in bytes of the transaction input's witness (including the CompactSize prefix). Executing a signature opcode (OP_CHECKSIG, OP_CHECKSIGVERIFY, or OP_CHECKSIGADD) with a non-empty signature decrements the budget by 50. If that brings the budget below zero, the script fails immediately. Signature opcodes with unknown public key type and non-empty signature are also counted.
@@ -58,8 +58,8 @@ public struct ScriptContext {
     var altStack = [Data]()
 
     /// Support for `OP_IF`, `OP_NOTIF`, `OP_ELSE` and `OP_ENDIF`.
-    var pendingIfOperations = [Bool?]()
-    var pendingElseOperations = 0
+    var pendingIfOps = [Bool?]()
+    var pendingElseOps = 0
 
     /// We keep the sighash cache instance inbetween resets / runs / input index updates.
     var sighashCache = SighashCache()
@@ -68,13 +68,13 @@ public struct ScriptContext {
         prevouts[txIn]
     }
 
-    var currentOp: ScriptOperation {
-        script.operations[operationIndex]
+    var currentOp: ScriptOp {
+        script.ops[opIndex]
     }
 
     /// Support for `OP_IF`, `OP_NOTIF`, `OP_ELSE` and `OP_ENDIF`.
     var evaluateBranch: Bool {
-        guard let lastEvaluatedIfResult = pendingIfOperations.last(where: { $0 != .none }), let lastEvaluatedIfResult else {
+        guard let lastEvaluatedIfResult = pendingIfOps.last(where: { $0 != .none }), let lastEvaluatedIfResult else {
             return true
         }
         return lastEvaluatedIfResult
@@ -134,33 +134,33 @@ public struct ScriptContext {
 
         // BIP342: `OP_SUCCESS`
         if sigVersion != .base && sigVersion != .witnessV0 &&
-            script.operations.contains(where: { if case .success(_) = $0 { true } else { false }}) {
+            script.ops.contains(where: { if case .success(_) = $0 { true } else { false }}) {
             if config.contains(.discourageOpSuccess) {
                 throw ScriptError.disallowedOpSuccess
             }
             return // Do not run the script.
         }
 
-        for operation in script.operations {
-            if (sigVersion == .base || sigVersion == .witnessV0) && !operation.isPush && operation != .success(80) { // .success(80) == .reserved for base and witnessV0
-                nonPushOperations += 1
-                guard nonPushOperations <= BitcoinScript.maxOperations else {
+        for op in script.ops {
+            if (sigVersion == .base || sigVersion == .witnessV0) && !op.isPush && op != .success(80) { // .success(80) == .reserved for base and witnessV0
+                nonPushOps += 1
+                guard nonPushOps <= BitcoinScript.maxOps else {
                     throw ScriptError.operationsLimitExceeded
                 }
             }
 
-            // Execute the operation.
-            try execute(operation)
+            // Execute the op.
+            try execute(op)
 
             // BIP141
             // BIP342: Stack + altstack element count limit The existing limit of 1000 elements in the stack and altstack together after every executed opcode remains.
             if sigVersion != .base && stack.count + altStack.count > BitcoinScript.maxStackElements {
                 throw ScriptError.stacksLimitExceeded
             }
-            programCounter += operation.size
-            operationIndex += 1
+            programCounter += op.size
+            opIndex += 1
         }
-        guard pendingIfOperations.isEmpty, pendingElseOperations == 0 else {
+        guard pendingIfOps.isEmpty, pendingElseOps == 0 else {
             throw ScriptError.malformedIfElseEndIf
         }
     }
@@ -169,14 +169,14 @@ public struct ScriptContext {
     private mutating func reset() {
         let copy = ScriptContext(config, tx: tx, prevouts: prevouts)
         programCounter = copy.programCounter
-        operationIndex = copy.operationIndex
-        nonPushOperations = copy.nonPushOperations
+        opIndex = copy.opIndex
+        nonPushOps = copy.nonPushOps
         sigopBudget = copy.sigopBudget
         lastCodeSeparatorOffset = copy.lastCodeSeparatorOffset
         lastCodeSeparatorIndex = copy.lastCodeSeparatorIndex
         altStack = copy.altStack
-        pendingIfOperations = copy.pendingIfOperations
-        pendingElseOperations = copy.pendingElseOperations
+        pendingIfOps = copy.pendingIfOps
+        pendingElseOps = copy.pendingElseOps
     }
 
     /// Support for `OP_CHECKSIG` and `OP_CHECKSIGVERIFY`. Legacy scripts only.
@@ -190,14 +190,14 @@ public struct ScriptContext {
         var scriptCode = Data()
         var programCounter2 = scriptData.startIndex
         while programCounter2 < scriptData.endIndex {
-            guard let operation = ScriptOperation(scriptData[programCounter2...]) else {
+            guard let op = ScriptOp(scriptData[programCounter2...]) else {
                 preconditionFailure()
                 // TODO: What happens to scriptCode if script cannot be fully decoded?
             }
 
             var operationContainsSignature = false
             for sig in sigs {
-                if !sig.isEmpty, operation == .pushBytes(sig) {
+                if !sig.isEmpty, op == .pushBytes(sig) {
                     operationContainsSignature = true
                     if config.contains(.constantScriptCode) {
                         throw ScriptError.nonConstantScript
@@ -207,11 +207,11 @@ public struct ScriptContext {
             }
 
             if
-                operation != .codeSeparator && !operationContainsSignature // Equivalent to FindAndDelete
+                op != .codeSeparator && !operationContainsSignature // Equivalent to FindAndDelete
             {
-                scriptCode.append(operation.data)
+                scriptCode.append(op.data)
             }
-            programCounter2 += operation.size
+            programCounter2 += op.size
         }
         return scriptCode
     }
@@ -223,7 +223,7 @@ public struct ScriptContext {
     }
 
     // TODO: A public version of this method should check limits as run() does.
-    private mutating func execute(_ op: ScriptOperation) throws {
+    private mutating func execute(_ op: ScriptOp) throws {
         op.operationPreconditions()
 
         // If branch consideration
@@ -344,10 +344,10 @@ public struct ScriptContext {
         }
     }
 
-    mutating func getUnaryNumericParam() throws -> ScriptNumber {
+    mutating func getUnaryNumericParam() throws -> ScriptNum {
         let first = try getUnaryParam()
         let minimal = config.contains(.minimalData)
-        let a = try ScriptNumber(first, minimal: minimal)
+        let a = try ScriptNum(first, minimal: minimal)
         return a
     }
 
@@ -359,11 +359,11 @@ public struct ScriptContext {
         return param
     }
 
-    mutating func getBinaryNumericParams() throws -> (ScriptNumber, ScriptNumber) {
+    mutating func getBinaryNumericParams() throws -> (ScriptNum, ScriptNum) {
         let (first, second) = try getBinaryParams()
         let minimal = config.contains(.minimalData)
-        let a = try ScriptNumber(first, minimal: minimal)
-        let b = try ScriptNumber(second, minimal: minimal)
+        let a = try ScriptNum(first, minimal: minimal)
+        let b = try ScriptNum(second, minimal: minimal)
         return (a, b)
     }
 
@@ -376,12 +376,12 @@ public struct ScriptContext {
         return (first, second)
     }
 
-    mutating func getTernaryNumericParams() throws -> (ScriptNumber, ScriptNumber, ScriptNumber) {
+    mutating func getTernaryNumericParams() throws -> (ScriptNum, ScriptNum, ScriptNum) {
         let (first, second, third) = try getTernaryParams()
         let minimal = config.contains(.minimalData)
-        let a = try ScriptNumber(first, minimal: minimal)
-        let b = try ScriptNumber(second, minimal: minimal)
-        let c = try ScriptNumber(third, minimal: minimal)
+        let a = try ScriptNum(first, minimal: minimal)
+        let b = try ScriptNum(second, minimal: minimal)
+        let c = try ScriptNum(third, minimal: minimal)
         return (a, b, c)
     }
 

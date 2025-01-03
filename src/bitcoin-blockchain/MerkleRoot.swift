@@ -22,3 +22,9 @@ func calculateMerkleRoot(_ hashes: [Data]) -> Data {
     }
     return calculateMerkleRoot(nextHashes)
 }
+
+func calculateWitnessMerkleRoot(_ txs: [BitcoinTx]) -> Data {
+    calculateMerkleRoot(
+        [BitcoinTx.coinbaseWitnessID] +
+        txs.map(\.witnessID))
+}

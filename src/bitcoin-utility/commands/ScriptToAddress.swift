@@ -12,7 +12,7 @@ struct ScriptToAddress: ParsableCommand {
     )
 
     @Option(name: .shortAndLong, help: "For tapscript an EC public key in compressed format is required along with the script tree leaves.")
-    var publicKey: String?
+    var pubkey: String?
 
     @Option(name: .shortAndLong, help: "The signature version which determines the address type.")
     var sigVersion = SigVersion.base
@@ -45,16 +45,16 @@ struct ScriptToAddress: ParsableCommand {
             let address = SegwitAddress(scripts[0], network: network)
             result = address.description
         case .witnessV1:
-            guard let publicKeyHex = publicKey else {
-                throw ValidationError("Public key is required for witness V1: publicKey")
+            guard let pubkeyHex = pubkey else {
+                throw ValidationError("Public key is required for witness V1: pubkey")
             }
-            guard let publicKeyData = Data(hex: publicKeyHex) else {
-                throw ValidationError("Invalid hexadecimal value: publicKey")
+            guard let pubkeyData = Data(hex: pubkeyHex) else {
+                throw ValidationError("Invalid hexadecimal value: pubkey")
             }
-            guard let publicKey = PublicKey(compressed: publicKeyData) else {
-                throw ValidationError("Invalid compressed public key data: publicKey")
+            guard let pubkey = PubKey(compressed: pubkeyData) else {
+                throw ValidationError("Invalid compressed public key data: pubkey")
             }
-            let address = TaprootAddress(publicKey, scripts: scripts, network: network)
+            let address = TaprootAddress(pubkey, scripts: scripts, network: network)
             result = address.description
         }
         print(result)

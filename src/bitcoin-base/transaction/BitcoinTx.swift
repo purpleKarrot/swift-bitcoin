@@ -100,18 +100,18 @@ public struct BitcoinTx: Equatable, Sendable {
             outs: [
                 .init(value: blockSubsidy,
                       script: .init([
-                        .pushBytes(PublicKey.satoshi.uncompressedData!),
+                        .pushBytes(PubKey.satoshi.uncompressedData!),
                         .checkSig]))
             ])
 
         return genesisTx
     }
 
-    public static func makeCoinbaseTx(blockHeight: Int, publicKey: PublicKey, witnessMerkleRoot: Data, blockSubsidy: Int) -> Self {
-        makeCoinbaseTx(blockHeight: blockHeight, publicKeyHash: Data(Hash160.hash(data: publicKey.data)), witnessMerkleRoot: witnessMerkleRoot, blockSubsidy: blockSubsidy)
+    public static func makeCoinbaseTx(blockHeight: Int, pubkey: PubKey, witnessMerkleRoot: Data, blockSubsidy: Int) -> Self {
+        makeCoinbaseTx(blockHeight: blockHeight, pubkeyHash: Data(Hash160.hash(data: pubkey.data)), witnessMerkleRoot: witnessMerkleRoot, blockSubsidy: blockSubsidy)
     }
 
-    public static func makeCoinbaseTx(blockHeight: Int, publicKeyHash: Data, witnessMerkleRoot: Data, blockSubsidy: Int) -> Self {
+    public static func makeCoinbaseTx(blockHeight: Int, pubkeyHash: Data, witnessMerkleRoot: Data, blockSubsidy: Int) -> Self {
         // BIP141 Commitment Structure https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki#commitment-structure
         let witnessReservedValue = Data(count: 32)
 
@@ -131,7 +131,7 @@ public struct BitcoinTx: Equatable, Sendable {
                 // Standard p2pkh
                 .dup,
                 .hash160,
-                .pushBytes(publicKeyHash),
+                .pushBytes(pubkeyHash),
                 .equalVerify,
                 .checkSig
             ])),
@@ -198,7 +198,7 @@ extension BitcoinTx {
         // BIP144
         if isSegwit {
             for i in ins.indices {
-                guard let witness = InputWitness(data) else { return nil }
+                guard let witness = TxWitness(data) else { return nil }
                 data = data.dropFirst(witness.size)
                 let txIn = ins[i]
                 ins[i] = .init(outpoint: txIn.outpoint, sequence: txIn.sequence, script: txIn.script, witness: witness)

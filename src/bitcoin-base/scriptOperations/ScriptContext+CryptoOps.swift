@@ -5,20 +5,20 @@ extension ScriptContext {
 
     /// The entire transaction's outputs, inputs, and script (from the most recently-executed `OP_CODESEPARATOR` to the end) are hashed. The signature used by `OP_CHECKSIG` must be a valid signature for this hash and public key. If it is, `1` is returned, `0` otherwise.
     mutating func opCheckSig() throws {
-        let (sig, publicKeyData) = try getBinaryParams()
+        let (sig, pubkeyData) = try getBinaryParams()
 
         if sigVersion == .witnessV1 {
-            let result = try checkSigSchnorr(sig, publicKeyData)
-            stack.append(ScriptBoolean(result).data)
+            let result = try checkSigSchnorr(sig, pubkeyData)
+            stack.append(ScriptBool(result).data)
             return
         }
 
         let scriptCode = try sigVersion == .base ? getScriptCode(sigs: [sig]) : segwitScriptCode
-        let result = try checkSigECDSA(sig, publicKeyData, scriptCode: scriptCode)
+        let result = try checkSigECDSA(sig, pubkeyData, scriptCode: scriptCode)
         if !result && config.contains(.nullFail) && !sig.isEmpty {
             throw ScriptError.signatureNotEmpty
         }
-        stack.append(ScriptBoolean(result).data)
+        stack.append(ScriptBool(result).data)
     }
 
     /// Same as `OP_CHECKSIG`, but `OP_VERIFY` is executed afterward.
@@ -29,28 +29,28 @@ extension ScriptContext {
 
     /// Compares the first signature against each public key until it finds an ECDSA match. Starting with the subsequent public key, it compares the second signature against each remaining public key until it finds an ECDSA match. The process is repeated until all signatures have been checked or not enough public keys remain to produce a successful result. All signatures need to match a public key. Because public keys are not checked again if they fail any signature comparison, signatures must be placed in the `scriptSig` using the same order as their corresponding public keys were placed in the `scriptPubKey` or `redeemScript`. If all signatures are valid, `1` is returned, `0` otherwise. Due to a bug, one extra unused value is removed from the stack.
     mutating func opCheckMultiSig() throws {
-        let (n, publicKeys, m, sigs) = try getCheckMultiSigParams()
+        let (n, pubkeys, m, sigs) = try getCheckMultiSigParams()
         precondition(m <= n)
-        precondition(publicKeys.count == n)
+        precondition(pubkeys.count == n)
         precondition(sigs.count == m)
 
-        guard n <= BitcoinScript.maxMultiSigPublicKeys else {
+        guard n <= BitcoinScript.maxMultiSigPubkeys else {
             throw ScriptError.maxPublicKeysExceeded
         }
 
-        nonPushOperations += n
-        guard nonPushOperations <= BitcoinScript.maxOperations else {
+        nonPushOps += n
+        guard nonPushOps <= BitcoinScript.maxOps else {
             throw ScriptError.operationsLimitExceeded
         }
 
         let scriptCode = try sigVersion == .base ? getScriptCode(sigs: sigs) : segwitScriptCode
-        var keysCount = publicKeys.count
+        var keysCount = pubkeys.count
         var sigsCount = sigs.count
-        var keyIndex = publicKeys.startIndex
+        var keyIndex = pubkeys.startIndex
         var sigIndex = sigs.startIndex
         var success = true
         while success && sigsCount > 0 {
-            if try checkSigECDSA(sigs[sigIndex], publicKeys[keyIndex], scriptCode: scriptCode) {
+            if try checkSigECDSA(sigs[sigIndex], pubkeys[keyIndex], scriptCode: scriptCode) {
                 sigIndex += 1
                 sigsCount -= 1
             }
@@ -67,7 +67,7 @@ extension ScriptContext {
             throw ScriptError.signatureNotEmpty
         }
 
-        stack.append(ScriptBoolean(success).data)
+        stack.append(ScriptBool(success).data)
     }
 
     /// Same as `OP_CHECKMULTISIG`' but `OP_VERIFY` is executed afterward.
@@ -80,15 +80,15 @@ extension ScriptContext {
     /// BIP342: Three values are popped from the stack. The integer n is incremented by one and returned to the stack if the signature is valid for the public key and transaction. The integer n is returned to the stack unchanged if the signature is the empty vector (OP_0). In any other case, the script is invalid. This opcode is only available in tapscript.
     mutating func opCheckSigAdd() throws {
         // If fewer than 3 elements are on the stack, the script MUST fail and terminate immediately.
-        let (sig, nData, publicKeyData) = try getTernaryParams()
+        let (sig, nData, pubkeyData) = try getTernaryParams()
 
-        var n = try ScriptNumber(nData, minimal: config.contains(.minimalData))
+        var n = try ScriptNum(nData, minimal: config.contains(.minimalData))
         guard n.size <= 4 else {
             // - If n is larger than 4 bytes, the script MUST fail and terminate immediately.
             throw ScriptError.invalidCheckSigAddArgument
         }
 
-        let result = try checkSigSchnorr(sig, publicKeyData)
+        let result = try checkSigSchnorr(sig, pubkeyData)
 
         // If the script did not fail and terminate before this step, regardless of the public key type:
         if !result {
@@ -137,10 +137,10 @@ extension ScriptContext {
         guard stack.count > 4 else {
             throw ScriptError.missingMultiSigArgument
         }
-        let n = try ScriptNumber(stack.removeLast(), minimal: config.contains(.minimalData)).value
-        let publicKeys = Array(stack.suffix(n).reversed())
+        let n = try ScriptNum(stack.removeLast(), minimal: config.contains(.minimalData)).value
+        let pubkeys = Array(stack.suffix(n).reversed())
         stack.removeLast(n)
-        let m = try ScriptNumber(stack.removeLast(), minimal: config.contains(.minimalData)).value
+        let m = try ScriptNum(stack.removeLast(), minimal: config.contains(.minimalData)).value
         let sigs = Array(stack.suffix(m).reversed())
         stack.removeLast(m)
         guard stack.count > 0 else {
@@ -150,20 +150,20 @@ extension ScriptContext {
         if config.contains(.nullDummy), dummyValue.count > 0 {
             throw ScriptError.dummyValueNotNull
         }
-        return (n, publicKeys, m, sigs)
+        return (n, pubkeys, m, sigs)
     }
 
-    private func checkSigECDSA(_ sig: Data, _ publicKeyData: Data, scriptCode: Data) throws -> Bool {
+    private func checkSigECDSA(_ sig: Data, _ pubkeyData: Data, scriptCode: Data) throws -> Bool {
 
         // Check public key
         if config.contains(.strictEncoding) {
-            guard let _ = PublicKey(publicKeyData, skipCheck: true) else {
+            guard let _ = PubKey(pubkeyData, skipCheck: true) else {
                 throw ScriptError.invalidPublicKeyEncoding
             }
         }
         // Only compressed keys are accepted in segwit
-        if sigVersion == .witnessV0 && config.contains(.witnessCompressedPublicKey) {
-            guard let _ = PublicKey(compressed: publicKeyData, skipCheck: true) else {
+        if sigVersion == .witnessV0 && config.contains(.witnessCompressedPubkey) {
+            guard let _ = PubKey(compressed: pubkeyData, skipCheck: true) else {
                 throw ScriptError.invalidPublicKeyEncoding
             }
         }
@@ -193,23 +193,23 @@ extension ScriptContext {
         }
 
         let sighash = SigHash(tx: tx, txIn: txIn, sigVersion: sigVersion, prevout: prevout, scriptCode: scriptCode, sighashType: sighashType).value
-        if let publicKey = PublicKey(publicKeyData) {
-            return extendedSig.sig.verify(hash: sighash, publicKey: publicKey)
+        if let pubkey = PubKey(pubkeyData) {
+            return extendedSig.sig.verify(hash: sighash, pubkey: pubkey)
         }
         return false
     }
 
-    private mutating func checkSigSchnorr(_ sig: Data, _ publicKeyData: Data) throws -> Bool {
+    private mutating func checkSigSchnorr(_ sig: Data, _ pubkeyData: Data) throws -> Bool {
 
         guard let tapLeafHash = tapLeafHash, let keyVersion = keyVersion else { preconditionFailure() }
 
         if !sig.isEmpty { try checkSigopBudget() }
 
         // If the public key size is zero, the script MUST fail and terminate immediately.
-        guard !publicKeyData.isEmpty else { throw ScriptError.emptyPublicKey }
+        guard !pubkeyData.isEmpty else { throw ScriptError.emptyPublicKey }
 
         // If the public key size is 32 bytes, it is considered to be a public key as described in BIP340:
-        if let publicKey = PublicKey(xOnly: publicKeyData), !sig.isEmpty {
+        if let pubkey = PubKey(xOnly: pubkeyData), !sig.isEmpty {
 
             let ext = TapscriptExtension(tapLeafHash: tapLeafHash, keyVersion: keyVersion, codesepPos: codeSeparatorPosition)
             let extendedSig = try ExtendedSig(schnorrData: sig)
@@ -217,12 +217,12 @@ extension ScriptContext {
             let sighash = hasher.sigHashSchnorr(sighashCache: &sighashCache)
 
             // Validation failure in this case immediately terminates script execution with failure.
-            guard extendedSig.sig.verify(hash: sighash, publicKey: publicKey) else {
+            guard extendedSig.sig.verify(hash: sighash, pubkey: pubkey) else {
                 throw ScriptError.invalidSchnorrSignature
             }
         } else if !sig.isEmpty {
             // If the public key size is not zero and not 32 bytes, the public key is of an unknown public key type and no actual signature verification is applied. During script execution of signature opcodes they behave exactly as known public key types except that signature validation is considered to be successful.
-            if config.contains(.discourageUpgradablePublicKeyType) {
+            if config.contains(.discourageUpgradablePubkeyType) {
                 throw ScriptError.disallowsPublicKeyType
             }
         }

@@ -3,16 +3,24 @@ import BitcoinCrypto
 
 public struct SighashType: Equatable, Sendable {
 
-    init(rawValue: UInt8) {
-        self.value = rawValue
+    init(rawValue: Int32) {
+        self.rawValue = rawValue
+    }
+
+    init(unchecked: UInt8) {
+        self.init(rawValue: Int32(unchecked))
     }
 
     init?(_ value: UInt8) {
-        self.init(rawValue: value)
+        self.init(unchecked: value)
         if !isDefined { return nil }
     }
 
-    public let value: UInt8
+    private let rawValue: Int32
+
+    public var value: UInt8 {
+        withUnsafeBytes(of: rawValue) { $0[0] }
+    }
 
     public var isAll: Bool {
         value & Self.maskAnyCanPay == Self.sighashAll
@@ -30,6 +38,10 @@ public struct SighashType: Equatable, Sendable {
         value & Self.sighashAnyCanPay == Self.sighashAnyCanPay
     }
 
+    public var hasAnyCanPay: Bool {
+        value & Self.sighashAnyCanPay != 0
+    }
+
     var isDefined: Bool {
         switch value & ~Self.sighashAnyCanPay {
         case Self.sighashAll, Self.sighashNone, Self.sighashSingle: true
@@ -43,12 +55,12 @@ public struct SighashType: Equatable, Sendable {
     private static let sighashAnyCanPay = UInt8(0x80)
     private static let maskAnyCanPay = UInt8(0x1f)
 
-    public static let all = Self(Self.sighashAll)!
-    public static let none = Self(Self.sighashNone)!
-    public static let single = Self(Self.sighashSingle)!
-    public static let allAnyCanPay = Self(Self.sighashAll | Self.sighashAnyCanPay)!
-    public static let noneAnyCanPay = Self(Self.sighashNone | Self.sighashAnyCanPay)!
-    public static let singleAnyCanPay = Self(Self.sighashSingle | Self.sighashAnyCanPay)!
+    public static let all = Self(unchecked: Self.sighashAll)
+    public static let none = Self(unchecked: Self.sighashNone)
+    public static let single = Self(unchecked: Self.sighashSingle)
+    public static let allAnyCanPay = Self(unchecked: Self.sighashAll | Self.sighashAnyCanPay)
+    public static let noneAnyCanPay = Self(unchecked: Self.sighashNone | Self.sighashAnyCanPay)
+    public static let singleAnyCanPay = Self(unchecked: Self.sighashSingle | Self.sighashAnyCanPay)
 }
 
 extension SighashType {
@@ -58,7 +70,7 @@ extension SighashType {
     }
 
     var data32: Data {
-        Data(value: UInt32(value))
+        Data(value: rawValue)
     }
 }
 
@@ -66,6 +78,6 @@ extension SighashType {
 extension Optional where Wrapped == SighashType {
 
     var data: Data {
-        return if case let .some(wrapped) = self { wrapped.data } else { Data([0x00]) }
+        if case let .some(wrapped) = self { wrapped.data } else { Data([0x00]) }
     }
 }

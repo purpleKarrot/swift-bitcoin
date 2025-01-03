@@ -13,14 +13,14 @@ fileprivate let expectedSHA256 = Data([0x2c, 0xf2, 0x4d, 0xba, 0x5f, 0xb0, 0xa3,
 fileprivate let expectedHash160 = Data([0xb6, 0xa9, 0xc8, 0xc2, 0x30, 0x72, 0x2b, 0x7c, 0x74, 0x83, 0x31, 0xa8, 0xb4, 0x50, 0xf0, 0x55, 0x66, 0xdc, 0x7d, 0x0f])
 fileprivate let expectedHash256 = Data([0x95, 0x95, 0xc9, 0xdf, 0x90, 0x07, 0x51, 0x48, 0xeb, 0x06, 0x86, 0x03, 0x65, 0xdf, 0x33, 0x58, 0x4b, 0x75, 0xbf, 0xf7, 0x82, 0xa5, 0x10, 0xc6, 0xcd, 0x48, 0x83, 0xa4, 0x19, 0x83, 0x3d, 0x50])
 
-struct ScriptOperationTests {
+struct ScriptOpsTests {
 
     @Test("Data operations", arguments: [
         // oneNegate, zero, constant
-        ([Int](), [ScriptOperation.oneNegate , .zero, .constant(1), .constant(2), .constant(3), .constant(4), .constant(5), .constant(6), .constant(7), .constant(8), .constant(9), .constant(10), .constant(11), .constant(12), .constant(13), .constant(14), .constant(15), .constant(16)], [-1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]),
-        ([], [.pushBytes(try! ScriptNumber(17).data)], [17]),
+        ([Int](), [ScriptOp.oneNegate , .zero, .constant(1), .constant(2), .constant(3), .constant(4), .constant(5), .constant(6), .constant(7), .constant(8), .constant(9), .constant(10), .constant(11), .constant(12), .constant(13), .constant(14), .constant(15), .constant(16)], [-1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]),
+        ([], [.pushBytes(try! ScriptNum(17).data)], [17]),
     ])
-    func dataOps(initialStack: [Int], ops: [ScriptOperation], finalStack: [Int]) throws {
+    func dataOps(initialStack: [Int], ops: [ScriptOp], finalStack: [Int]) throws {
         var stack = [Data].withConstants(initialStack)
         try BitcoinScript(ops).run(&stack)
         #expect(stack == .withConstants(finalStack))
@@ -28,14 +28,14 @@ struct ScriptOperationTests {
 
     @Test("Lengthy data", arguments: [
         // pushBytes
-        ([Data](), [ScriptOperation.pushBytes(lengthyData)], [lengthyData]),
+        ([Data](), [ScriptOp.pushBytes(lengthyData)], [lengthyData]),
         // size
-        ([Data](), [ScriptOperation.pushBytes(lengthyData), .size], [lengthyData, try! ScriptNumber(lengthyLength).data]),
+        ([Data](), [ScriptOp.pushBytes(lengthyData), .size], [lengthyData, try! ScriptNum(lengthyLength).data]),
         // equal
-        ([Data](), [ScriptOperation.pushBytes(lengthyData), ScriptOperation.pushBytes(lengthyData), .equal], [ScriptNumber.one.data]),
-        ([Data](), [ScriptOperation.pushBytes(lengthyData), ScriptOperation.pushBytes(lengthyData2), .equal, .constant(1)], [ScriptNumber.zero.data, ScriptNumber.one.data]),
+        ([Data](), [ScriptOp.pushBytes(lengthyData), ScriptOp.pushBytes(lengthyData), .equal], [ScriptNum.one.data]),
+        ([Data](), [ScriptOp.pushBytes(lengthyData), ScriptOp.pushBytes(lengthyData2), .equal, .constant(1)], [ScriptNum.zero.data, ScriptNum.one.data]),
     ])
-    func additionalDataOps(initialStack: [Data], ops: [ScriptOperation], finalStack: [Data]) throws {
+    func additionalDataOps(initialStack: [Data], ops: [ScriptOp], finalStack: [Data]) throws {
         var stack = initialStack
         try BitcoinScript(ops).run(&stack)
         #expect(stack == finalStack)
@@ -43,7 +43,7 @@ struct ScriptOperationTests {
 
     @Test("Cryptographic operations", arguments: [
         // ripemd160
-        ([helloData], [ScriptOperation.ripemd160], [expectedRIPEMD160]),
+        ([helloData], [ScriptOp.ripemd160], [expectedRIPEMD160]),
         // sha1
         ([helloData], [.sha1], [expectedSHA1]),
         // sha256
@@ -53,7 +53,7 @@ struct ScriptOperationTests {
         // hash256
         ([helloData], [.hash256], [expectedHash256]),
     ])
-    func cryptographyOps(initialStack: [Data], ops: [ScriptOperation], finalStack: [Data]) throws {
+    func cryptographyOps(initialStack: [Data], ops: [ScriptOp], finalStack: [Data]) throws {
         var stack = initialStack
         try BitcoinScript(ops).run(&stack)
         #expect(stack == finalStack)
@@ -61,7 +61,7 @@ struct ScriptOperationTests {
 
     @Test("Stack operations", arguments: [
         // toAltStack / fromAltStack
-        ([1], [ScriptOperation.toAltStack, .zero, .fromAltStack], [0, 1]),
+        ([1], [ScriptOp.toAltStack, .zero, .fromAltStack], [0, 1]),
         // ifDup
         ([0], [.ifDup, .constant(1)], [0, 1]),
         ([1], [.ifDup], [1, 1]),
@@ -103,7 +103,7 @@ struct ScriptOperationTests {
         // twoSwap
         ([1, 2, 3, 4], [.twoSwap], [3, 4, 1, 2]),
     ])
-    func stackOps(initialStack: [Int], ops: [ScriptOperation], finalStack: [Int]) throws {
+    func stackOps(initialStack: [Int], ops: [ScriptOp], finalStack: [Int]) throws {
         var stack = [Data].withConstants(initialStack)
         try BitcoinScript(ops).run(&stack)
         #expect(stack == .withConstants(finalStack))
@@ -111,7 +111,7 @@ struct ScriptOperationTests {
 
     @Test("Arithmetic operations", arguments: [
         // oneAdd
-        ([1], [ScriptOperation.oneAdd], [2]),
+        ([1], [ScriptOp.oneAdd], [2]),
         // oneSub
         ([2], [.oneSub], [1]),
         // negate
@@ -190,7 +190,7 @@ struct ScriptOperationTests {
         ([-1, 1], [.equal, .constant(1)], [0, 1]),
         ([1, -1], [.equal, .constant(1)], [0, 1]),
     ])
-    func arithmeticOps(initialStack: [Int], ops: [ScriptOperation], finalStack: [Int]) throws {
+    func arithmeticOps(initialStack: [Int], ops: [ScriptOp], finalStack: [Int]) throws {
         var stack = [Data].withConstants(initialStack)
         try BitcoinScript(ops).run(&stack)
         #expect(stack == .withConstants(finalStack))

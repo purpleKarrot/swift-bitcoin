@@ -12,7 +12,7 @@ public struct TaprootAddress: BitcoinAddress {
             do {
                 (version, program) = try SegwitAddressDecoder(hrp: network.bech32HRP).decode(address)
                 self.network = network
-                guard version > 0, let outputKey = PublicKey(xOnly: program) else {
+                guard version > 0, let outputKey = PubKey(xOnly: program) else {
                     return nil
                 }
                 self.outputKey = outputKey
@@ -30,7 +30,7 @@ public struct TaprootAddress: BitcoinAddress {
         self.init(secretKey.taprootInternalKey, scripts: scripts, network: network)
     }
 
-    public init(_ internalKey: PublicKey, scripts: [BitcoinScript] = [], network: WalletNetwork = .main) {
+    public init(_ internalKey: PubKey, scripts: [BitcoinScript] = [], network: WalletNetwork = .main) {
         precondition(scripts.count <= 8)
         precondition(internalKey.hasEvenY)
         self.network = network
@@ -43,7 +43,7 @@ public struct TaprootAddress: BitcoinAddress {
     }
 
     public let network: WalletNetwork
-    public let outputKey: PublicKey
+    public let outputKey: PubKey
 
     public var description: String {
         try! SegwitAddressEncoder(hrp: network.bech32HRP, version: 1).encode(outputKey.xOnlyData)

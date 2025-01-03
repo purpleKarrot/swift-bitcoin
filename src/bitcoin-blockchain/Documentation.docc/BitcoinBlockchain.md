@@ -19,7 +19,7 @@ let blockchain = BlockchainService()
 
 // Mine 100 blocks so block 1's coinbase output reaches maturity.
 for _ in 0 ..< 100 {
-    await service.generateTo(publicKey)
+    await service.generateTo(pubkey)
 }
 …
 
@@ -34,7 +34,7 @@ await blockchain.addTx(signedTx)
 // In this case we can use the address we created before.
 
 // Minde to the public key hash
-await blockchain.generateTo(publicKey)
+await blockchain.generateTo(pubkey)
 
 // The mempool should now be empty.
 #expect(await blockchain.mempool.count == 0)

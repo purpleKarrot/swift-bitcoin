@@ -114,7 +114,7 @@ public class SigHash {
         let scriptCode = scriptCode ?? prevout.script.data
 
         var newIns = [TxIn]()
-        if sighashType.isAnyCanPay {
+        if sighashType.hasAnyCanPay {
             // Procedure for Hashtype SIGHASH_ANYONECANPAY
             // The txCopy input vector is resized to a length of one.
             // The current transaction input (with scriptPubKey modified to subScript) is set as the first and only member of this vector.
@@ -187,7 +187,7 @@ public class SigHash {
         //If the ANYONECANPAY flag is not set, hashPrevouts is the double SHA256 of the serialization of all input outpoints;
         // Otherwise, hashPrevouts is a uint256 of 0x0000......0000.
         var hashPrevouts: Data
-        if sighashType.isAnyCanPay {
+        if sighashType.hasAnyCanPay {
             hashPrevouts = Data(repeating: 0, count: 32)
         } else {
             let prevouts = tx.ins.reduce(Data()) { $0 + $1.outpoint.data }
@@ -197,7 +197,7 @@ public class SigHash {
         // If none of the ANYONECANPAY, SINGLE, NONE sighash type is set, hashSequence is the double SHA256 of the serialization of nSequence of all inputs;
         // Otherwise, hashSequence is a uint256 of 0x0000......0000.
         let hashSequence: Data
-        if !sighashType.isAnyCanPay && !sighashType.isSingle && !sighashType.isNone {
+        if !sighashType.hasAnyCanPay && !sighashType.isSingle && !sighashType.isNone {
             let sequence = tx.ins.reduce(Data()) {
                 $0 + $1.sequence.data
             }

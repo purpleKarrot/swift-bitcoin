@@ -2,7 +2,7 @@ import Testing
 import Foundation
 @testable import BitcoinBase
 
-struct ScriptNumberTests {
+struct ScriptNumTests {
 
     let zeroData = Data()
     let oneData = Data([1])
@@ -21,76 +21,76 @@ struct ScriptNumberTests {
     @Test("Data roundtrips")
     func dataRoundTrips() throws {
         // Zero (0)
-        let zeroNum = try ScriptNumber(zeroData)
+        let zeroNum = try ScriptNum(zeroData)
         let zeroDataBack = zeroNum.data
         #expect(zeroDataBack == zeroData)
 
         // One (1)
-        let oneNum = try ScriptNumber(oneData)
+        let oneNum = try ScriptNum(oneData)
         let oneDataBack = oneNum.data
         #expect(oneDataBack == oneData)
 
         // Minus one (-1)
-        let minusOneNum = try ScriptNumber(minusOneData)
+        let minusOneNum = try ScriptNum(minusOneData)
         let minusOneDataBack = minusOneNum.data
         #expect(minusOneDataBack == minusOneData)
 
         // 1-byte max (127)
-        let maxNum = try ScriptNumber(oneByteMaxData)
+        let maxNum = try ScriptNum(oneByteMaxData)
         let maxDataBack = maxNum.data
         #expect(maxDataBack == oneByteMaxData)
 
         // 1-byte min (-127)
-        let minNum = try ScriptNumber(oneByteMinData)
+        let minNum = try ScriptNum(oneByteMinData)
         let minDataBack = minNum.data
         #expect(minDataBack == oneByteMinData)
 
         // 2-byte max (0x7fff)
-        let twoByteMaxNum = try ScriptNumber(twoByteMaxData)
+        let twoByteMaxNum = try ScriptNum(twoByteMaxData)
         let twoByteMaxDataBack = twoByteMaxNum.data
         #expect(twoByteMaxDataBack == twoByteMaxData)
 
         // 2-byte min (0xffff)
-        let twoByteMinNum = try ScriptNumber(twoByteMinData)
+        let twoByteMinNum = try ScriptNum(twoByteMinData)
         let twoByteMinDataBack = twoByteMinNum.data
         #expect(twoByteMinDataBack == twoByteMinData)
 
         // 3-byte max (0x7fffff)
-        let threeByteMaxNum = try ScriptNumber(threeByteMaxData)
+        let threeByteMaxNum = try ScriptNum(threeByteMaxData)
         let threeByteMaxDataBack = threeByteMaxNum.data
         #expect(threeByteMaxDataBack == threeByteMaxData)
 
         // 3-byte min (0xffffff)
-        let threeByteMinNum = try ScriptNumber(threeByteMinData)
+        let threeByteMinNum = try ScriptNum(threeByteMinData)
         let threeByteMinDataBack = threeByteMinNum.data
         #expect(threeByteMinDataBack == threeByteMinData)
 
         // 4-byte max (0x7fffffff)
-        let fourByteMaxNum = try ScriptNumber(fourByteMaxData)
+        let fourByteMaxNum = try ScriptNum(fourByteMaxData)
         let fourByteMaxDataBack = fourByteMaxNum.data
         #expect(fourByteMaxDataBack == fourByteMaxData)
 
         // 4-byte min (0xffffffff)
-        let fourByteMinNum = try ScriptNumber(fourByteMinData)
+        let fourByteMinNum = try ScriptNum(fourByteMinData)
         let fourByteMinDataBack = fourByteMinNum.data
         #expect(fourByteMinDataBack == fourByteMinData)
 
         // 5-byte max (0x7fffffffff)
-        let fiveByteMaxNum = try ScriptNumber(fiveByteMaxData, extendedLength: true)
+        let fiveByteMaxNum = try ScriptNum(fiveByteMaxData, extendedLength: true)
         let fiveByteMaxDataBack = fiveByteMaxNum.data
         #expect(fiveByteMaxDataBack == fiveByteMaxData)
 
         // 5-byte min (0xffffffffff)
-        let fiveByteMinNum = try ScriptNumber(fiveByteMinData, extendedLength: true)
+        let fiveByteMinNum = try ScriptNum(fiveByteMinData, extendedLength: true)
         let fiveByteMinDataBack = fiveByteMinNum.data
         #expect(fiveByteMinDataBack == fiveByteMinData)
     }
 
     @Test("Adding")
     func adding() throws {
-        var a = try ScriptNumber(zeroData)
+        var a = try ScriptNum(zeroData)
         var a2 = a
-        var b = try ScriptNumber(zeroData)
+        var b = try ScriptNum(zeroData)
         try a.add(b)
         var dataBack = a.data
         #expect(dataBack == zeroData)
@@ -98,9 +98,9 @@ struct ScriptNumberTests {
         dataBack = b.data
         #expect(dataBack == zeroData)
 
-        a = try ScriptNumber(oneByteMinData)
+        a = try ScriptNum(oneByteMinData)
         a2 = a
-        b = try ScriptNumber(oneByteMaxData)
+        b = try ScriptNum(oneByteMaxData)
         try a.add(b)
         dataBack = a.data
         #expect(dataBack == zeroData)
@@ -108,9 +108,9 @@ struct ScriptNumberTests {
         dataBack = b.data
         #expect(dataBack == zeroData)
 
-        a = try ScriptNumber(twoByteMinData)
+        a = try ScriptNum(twoByteMinData)
         a2 = a
-        b = try ScriptNumber(twoByteMaxData)
+        b = try ScriptNum(twoByteMaxData)
         try a.add(b)
         dataBack = a.data
         #expect(dataBack == zeroData)
@@ -118,9 +118,9 @@ struct ScriptNumberTests {
         dataBack = b.data
         #expect(dataBack == zeroData)
 
-        a = try ScriptNumber(threeByteMinData)
+        a = try ScriptNum(threeByteMinData)
         a2 = a
-        b = try ScriptNumber(threeByteMaxData)
+        b = try ScriptNum(threeByteMaxData)
         try a.add(b)
         dataBack = a.data
         #expect(dataBack == zeroData)
@@ -128,9 +128,9 @@ struct ScriptNumberTests {
         dataBack = b.data
         #expect(dataBack == zeroData)
 
-        a = try ScriptNumber(fourByteMinData)
+        a = try ScriptNum(fourByteMinData)
         a2 = a
-        b = try ScriptNumber(fourByteMaxData)
+        b = try ScriptNum(fourByteMaxData)
         try a.add(b)
         dataBack = a.data
         #expect(dataBack == zeroData)
@@ -138,9 +138,9 @@ struct ScriptNumberTests {
         dataBack = b.data
         #expect(dataBack == zeroData)
 
-        a = try ScriptNumber(fiveByteMinData, extendedLength: true)
+        a = try ScriptNum(fiveByteMinData, extendedLength: true)
         a2 = a
-        b = try ScriptNumber(fiveByteMaxData, extendedLength: true)
+        b = try ScriptNum(fiveByteMaxData, extendedLength: true)
         try a.add(b)
         dataBack = a.data
         #expect(dataBack == zeroData)
@@ -151,106 +151,106 @@ struct ScriptNumberTests {
 
     @Test("Minimal Data")
     func minimalData() throws {
-        var number: ScriptNumber = .negativeOne
+        var number: ScriptNum = .negativeOne
 
         let zero = Data([])
-        number = try ScriptNumber(zero)
+        number = try ScriptNum(zero)
         #expect(number == .zero)
-        number = try ScriptNumber(zero, minimal: true)
+        number = try ScriptNum(zero, minimal: true)
         #expect(number == .zero)
 
         let explicitZero = Data([0b00000000])
-        number = try ScriptNumber(explicitZero)
+        number = try ScriptNum(explicitZero)
         #expect(number == .zero)
         #expect(throws: ScriptError.zeroPaddedNumber) {
-            _ = try ScriptNumber(explicitZero, minimal: true)
+            _ = try ScriptNum(explicitZero, minimal: true)
         }
 
         let zeroPaddedZero = Data([0b00000000, 0b00000000])
-        number = try ScriptNumber(zeroPaddedZero)
+        number = try ScriptNum(zeroPaddedZero)
         #expect(number == .zero)
         #expect(throws: ScriptError.zeroPaddedNumber) {
-            _ = try ScriptNumber(zeroPaddedZero, minimal: true)
+            _ = try ScriptNum(zeroPaddedZero, minimal: true)
         }
 
         let doublePaddedZero = Data([0b00000000, 0b00000000, 0b00000000])
-        number = try ScriptNumber(doublePaddedZero)
+        number = try ScriptNum(doublePaddedZero)
         #expect(number == .zero)
         #expect(throws: ScriptError.zeroPaddedNumber) {
-            _ = try ScriptNumber(doublePaddedZero, minimal: true)
+            _ = try ScriptNum(doublePaddedZero, minimal: true)
         }
 
         let negativeZero = Data([0b10000000])
-        number = try ScriptNumber(negativeZero)
+        number = try ScriptNum(negativeZero)
         #expect(number == .zero)
         #expect(throws: ScriptError.negativeZero) {
-            _ = try ScriptNumber(negativeZero, minimal: true)
+            _ = try ScriptNum(negativeZero, minimal: true)
         }
 
         let negativeZeroPadded = Data([0b00000000, 0b10000000]) // Little endian
-        number = try ScriptNumber(negativeZeroPadded)
+        number = try ScriptNum(negativeZeroPadded)
         #expect(number == .zero)
         #expect(throws: ScriptError.negativeZero) {
-            _ = try ScriptNumber(negativeZeroPadded, minimal: true)
+            _ = try ScriptNum(negativeZeroPadded, minimal: true)
         }
 
         let negativeZeroDoublePadded = Data([0b00000000, 0b00000000, 0b10000000])
-        number = try ScriptNumber(negativeZeroDoublePadded)
+        number = try ScriptNum(negativeZeroDoublePadded)
         #expect(number == .zero)
         #expect(throws: ScriptError.negativeZero) {
-            _ = try ScriptNumber(negativeZeroDoublePadded, minimal: true)
+            _ = try ScriptNum(negativeZeroDoublePadded, minimal: true)
         }
 
         let negativeOne = Data([0b10000001])
-        number = try ScriptNumber(negativeOne)
+        number = try ScriptNum(negativeOne)
         #expect(number == .negativeOne)
-        number = try ScriptNumber(negativeOne, minimal: true)
+        number = try ScriptNum(negativeOne, minimal: true)
         #expect(number == .negativeOne)
 
         let negativeOnePadded = Data([0b00000001, 0b10000000])
-        number = try ScriptNumber(negativeOnePadded)
+        number = try ScriptNum(negativeOnePadded)
         #expect(number == .negativeOne)
         #expect(throws: ScriptError.zeroPaddedNumber) {
-            _ = try ScriptNumber(negativeOnePadded, minimal: true)
+            _ = try ScriptNum(negativeOnePadded, minimal: true)
         }
 
         let negativeOneDoublePadded = Data([0b00000001, 0b00000000, 0b10000000])
-        number = try ScriptNumber(negativeOneDoublePadded)
+        number = try ScriptNum(negativeOneDoublePadded)
         #expect(number == .negativeOne)
         #expect(throws: ScriptError.zeroPaddedNumber) {
-            _ = try ScriptNumber(negativeOneDoublePadded, minimal: true)
+            _ = try ScriptNum(negativeOneDoublePadded, minimal: true)
         }
 
         let minus127 = Data([0b11111111])
-        number = try ScriptNumber(minus127)
+        number = try ScriptNum(minus127)
         #expect(number.value == -127)
-        number = try ScriptNumber(minus127, minimal: true)
+        number = try ScriptNum(minus127, minimal: true)
         #expect(number.value == -127)
 
         let possitive255 = Data([0b11111111, 0b00000000])
-        number = try ScriptNumber(possitive255)
+        number = try ScriptNum(possitive255)
         #expect(number.value == 255)
-        number = try ScriptNumber(possitive255, minimal: true)
+        number = try ScriptNum(possitive255, minimal: true)
         #expect(number.value == 255)
 
         let possitive255Padded = Data([0b11111111, 0b00000000, 0b00000000])
-        number = try ScriptNumber(possitive255Padded)
+        number = try ScriptNum(possitive255Padded)
         #expect(number.value == 255)
         #expect(throws: ScriptError.zeroPaddedNumber) {
-            _ = try ScriptNumber(possitive255Padded, minimal: true)
+            _ = try ScriptNum(possitive255Padded, minimal: true)
         }
 
         let maxBytesPadded = Data([0b00000000, 0b00000000, 0b00000000, 0b01000000, 0b00000000])
-        number = try ScriptNumber(maxBytesPadded, extendedLength: true)
+        number = try ScriptNum(maxBytesPadded, extendedLength: true)
         #expect(number.value == 0x40000000)
         #expect(throws: ScriptError.zeroPaddedNumber) {
-            _ = try ScriptNumber(maxBytesPadded, extendedLength: true, minimal: true)
+            _ = try ScriptNum(maxBytesPadded, extendedLength: true, minimal: true)
         }
 
         let maxBytesPaddingOk = Data([0b00000000, 0b00000000, 0b00000000, 0b10000000, 0b00000000])
-        number = try ScriptNumber(maxBytesPaddingOk, extendedLength: true)
+        number = try ScriptNum(maxBytesPaddingOk, extendedLength: true)
         #expect(number.value == 0x80000000)
-        number = try ScriptNumber(maxBytesPaddingOk, extendedLength: true, minimal: true)
+        number = try ScriptNum(maxBytesPaddingOk, extendedLength: true, minimal: true)
         #expect(number.value == 0x80000000)
     }
 }

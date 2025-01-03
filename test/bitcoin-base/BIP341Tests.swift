@@ -175,7 +175,7 @@ struct BIP341Tests {
         expectedBIP350Address: String,
         expectedScriptPathControlBlocks: [[UInt8]]
     ) throws {
-        let internalKey = try #require(PublicKey(xOnly: Data(givenInternalPubkey)))
+        let internalKey = try #require(PubKey(xOnly: Data(givenInternalPubkey)))
         let (merkleRoot, leafHashes, controlBlocks) = internalKey.computeControlBlocks(givenScriptTree)
         let tweak = internalKey.tapTweak(merkleRoot: merkleRoot)
         let tweakedPubkeyData = internalKey.tweakXOnly(tweak).xOnlyData
@@ -447,7 +447,7 @@ struct BIP341Tests {
             let txIn = testCase.given.txinIndex
 
             // Expected
-            let expectedInternalPublicKey = testCase.intermediary.internalPubkey
+            let expectedInternalPubkey = testCase.intermediary.internalPubkey
             let expectedTweak = testCase.intermediary.tweak
             let expectedTweakedSecretKey = testCase.intermediary.tweakedSecretKey
             let expectedSigMsg = testCase.intermediary.sigMsg
@@ -455,11 +455,11 @@ struct BIP341Tests {
             let expectedWitness = testCase.expectedWitness
 
             let secretKey = try #require(SecretKey(secretKeyData))
-            let internalPublicKey = secretKey.xOnlyPublicKey
-            let internalPublicKeyData = internalPublicKey.xOnlyData
-            #expect(internalPublicKeyData == expectedInternalPublicKey)
+            let internalPubkey = secretKey.xOnlyPubkey
+            let internalPubkeyData = internalPubkey.xOnlyData
+            #expect(internalPubkeyData == expectedInternalPubkey)
 
-            let tweak = internalPublicKey.tapTweak(merkleRoot: merkleRoot)
+            let tweak = internalPubkey.tapTweak(merkleRoot: merkleRoot)
             #expect(tweak == expectedTweak)
 
             let tweakedSecretKey = secretKey.tweakXOnly(tweak)
@@ -484,7 +484,7 @@ struct BIP341Tests {
             } else {
                 hashTypeSuffix = Data()
             }
-            let sig = Signature(hash: sighash, secretKey: tweakedSecretKey, type: .schnorr)
+            let sig = AnySig(hash: sighash, secretKey: tweakedSecretKey, type: .schnorr)
             let extSig = sig.data + hashTypeSuffix
             #expect([extSig] == expectedWitness)
         }

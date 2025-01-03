@@ -18,7 +18,7 @@ import Foundation
 ///
 /// In particular, note that zero could be encoded as `01 80` (negative zero) if using the non-shortest form is allowed.
 ///
-public struct ScriptNumber: Equatable, Sendable {
+public struct ScriptNum: Equatable, Sendable {
 
     public static let zero = Self(unsafeValue: 0)
     public static let one = Self(unsafeValue: 1)
@@ -48,7 +48,7 @@ public struct ScriptNumber: Equatable, Sendable {
         value.signum() == -1
     }
 
-    mutating func add(_ b: ScriptNumber) throws {
+    mutating func add(_ b: ScriptNum) throws {
         let newValue = value + b.value
         if newValue.magnitude > Self.maxValue {
             throw ScriptError.numberOverflow
@@ -61,7 +61,7 @@ public struct ScriptNumber: Equatable, Sendable {
     }
 }
 
-extension ScriptNumber {
+extension ScriptNum {
 
     /// BIP62 rule 4: Zero-padded number pushes Any time a script opcode consumes a stack value that is interpreted as a number, it must be encoded in its shortest possible form. 'Negative zero' is not allowed.
     public init(_ data: Data, extendedLength: Bool = false, minimal: Bool = false) throws {

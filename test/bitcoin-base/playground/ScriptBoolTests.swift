@@ -2,7 +2,7 @@ import Testing
 import Foundation
 @testable import BitcoinBase
 
-struct ScriptBooleanTests {
+struct ScriptBoolTests {
 
     let zeroData = Data()
     let oneData = Data([1])
@@ -16,17 +16,17 @@ struct ScriptBooleanTests {
         let falseValue2 = Data([0, 0x80])
         let falseValue3 = Data([0, 0, 0x80])
 
-        var b = ScriptBoolean(zeroData)
+        var b = ScriptBool(zeroData)
         #expect(!b.value)
-        b = ScriptBoolean(negativeZero)
+        b = ScriptBool(negativeZero)
         #expect(!b.value)
-        b = ScriptBoolean(falseValue)
+        b = ScriptBool(falseValue)
         #expect(!b.value)
-        b = ScriptBoolean(falseValue1)
+        b = ScriptBool(falseValue1)
         #expect(!b.value)
-        b = ScriptBoolean(falseValue2)
+        b = ScriptBool(falseValue2)
         #expect(!b.value)
-        b = ScriptBoolean(falseValue3)
+        b = ScriptBool(falseValue3)
         #expect(!b.value)
     }
 
@@ -37,15 +37,15 @@ struct ScriptBooleanTests {
         let trueValue2 = Data([1, 0])
         let trueValue3 = Data([0x80, 0])
 
-        var b = ScriptBoolean(oneData)
+        var b = ScriptBool(oneData)
         #expect(b.value)
-        b = ScriptBoolean(trueValue)
+        b = ScriptBool(trueValue)
         #expect(b.value)
-        b = ScriptBoolean(trueValue1)
+        b = ScriptBool(trueValue1)
         #expect(b.value)
-        b = ScriptBoolean(trueValue2)
+        b = ScriptBool(trueValue2)
         #expect(b.value)
-        b = ScriptBoolean(trueValue3)
+        b = ScriptBool(trueValue3)
         #expect(b.value)
     }
 }

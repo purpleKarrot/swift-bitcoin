@@ -64,7 +64,7 @@ extension BitcoinTx {
 
             // scriptSig and scriptPubKey must be evaluated sequentially on the same stack rather than being simply concatenated (see CVE-2010-5141)
             try context.run(scriptPubKey, stack: stackTmp)
-            if let last = context.stack.last, !ScriptBoolean(last).value {
+            if let last = context.stack.last, !ScriptBool(last).value {
                 throw ScriptError.falseReturned
             }
 
@@ -92,7 +92,7 @@ extension BitcoinTx {
                     witnessProgram = .none
 
                     try context.run(redeemScript, stack: stack)
-                    if let last = context.stack.last, !ScriptBoolean(last).value {
+                    if let last = context.stack.last, !ScriptBool(last).value {
                         throw ScriptError.falseReturned
                     }
                 }
@@ -113,7 +113,7 @@ extension BitcoinTx {
             guard let witnessVersion, let witnessProgram else { preconditionFailure() }
             if witnessVersion == 0 {
                 try verifyWitness(&context, witnessVersion: witnessVersion, witnessProgram: witnessProgram)
-            } else if witnessVersion == 1 && witnessProgram.count == PublicKey.xOnlyLength && !isPayToScriptHash {
+            } else if witnessVersion == 1 && witnessProgram.count == PubKey.xOnlyLength && !isPayToScriptHash {
                 // BIP341
                 try verifyTaproot(&context, witnessVersion: witnessVersion, witnessProgram: witnessProgram)
             } else if config.contains(.discourageUpgradableWitnessProgram) {
@@ -143,7 +143,7 @@ extension BitcoinTx {
             try context.run(witnessScript, stack: stack, sigVersion: .witnessV0)
 
             // The verification must result in a single TRUE on the stack.
-            guard context.stack.count == 1, let last = context.stack.last, ScriptBoolean(last).value else {
+            guard context.stack.count == 1, let last = context.stack.last, ScriptBool(last).value else {
                 throw ScriptError.falseReturned
             }
         } else if witnessProgram.count == SHA256.Digest.byteCount /* 32 */ {
@@ -167,7 +167,7 @@ extension BitcoinTx {
             try context.run(witnessScript, stack: stack, sigVersion: .witnessV0)
 
             // The script must not fail, and result in exactly a single TRUE on the stack.
-            guard context.stack.count == 1, let last = context.stack.last, ScriptBoolean(last).value else {
+            guard context.stack.count == 1, let last = context.stack.last, ScriptBool(last).value else {
                 throw ScriptError.falseReturned
             }
         } else {
@@ -197,13 +197,13 @@ extension BitcoinTx {
 
         // If there is exactly one element left in the witness stack, key path spending is used:
         if stack.count == 1 {
-            guard let publicKey = PublicKey(xOnly: witnessProgram) else {
+            guard let pubkey = PubKey(xOnly: witnessProgram) else {
                 fatalError()
             }
             let extendedSig = try ExtendedSig(schnorrData: stack[0])
             let hasher = SigHash(tx: self, txIn: txIn, prevouts: prevouts, sighashType: extendedSig.sighashType)
             let sighash = hasher.sigHashSchnorr(sighashCache: &context.sighashCache)
-            guard extendedSig.sig.verify(hash: sighash, publicKey: publicKey) else {
+            guard extendedSig.sig.verify(hash: sighash, pubkey: pubkey) else {
                 throw ScriptError.invalidSchnorrSignature
             }
             return
@@ -224,10 +224,10 @@ extension BitcoinTx {
 
         // Let p = c[1:33] and let P = lift_x(int(p)) where lift_x and [:] are defined as in BIP340. Fail if this point is not on the curve.
         // q is referred to as taproot output key and p as taproot internal key.
-        let internalKeyData = control.dropFirst().prefix(PublicKey.xOnlyLength)
+        let internalKeyData = control.dropFirst().prefix(PubKey.xOnlyLength)
 
         // Fail if this point is not on the curve.
-        guard let internalKey = PublicKey(xOnly: internalKeyData), internalKey.check(useXOnly: true) else { throw ScriptError.invalidTaprootPublicKey }
+        guard let internalKey = PubKey(xOnly: internalKeyData), internalKey.check(useXOnly: true) else { throw ScriptError.invalidTaprootPublicKey }
 
         // Let v = c[0] & 0xfe and call it the leaf version
         let leafVersion = control[0] & 0xfe
@@ -243,7 +243,7 @@ extension BitcoinTx {
         // Verify that the output pubkey matches the tweaked internal pubkey, after correcting for parity.
         //let parity = (control[0] & 0x01) != 0
         let hasEvenY = (control[0] & 0x01) == 0
-        let outputKey = PublicKey(xOnly: outputKeyData, hasEvenY: hasEvenY)! // TODO: Check if this could fail somehow when witness data contains an invalid public key.
+        let outputKey = PubKey(xOnly: outputKeyData, hasEvenY: hasEvenY)! // TODO: Check if this could fail somehow when witness data contains an invalid public key.
         guard internalKey.checkTweak(tweak, outputKey: outputKey) else {
             throw ScriptError.invalidTaprootTweak
         }
@@ -264,7 +264,7 @@ extension BitcoinTx {
         try context.run(tapscript, stack: stack, sigVersion: .witnessV1, leafVersion: leafVersion, tapLeafHash: tapLeafHash)
 
         // If the execution results in anything but exactly one element on the stack which evaluates to true with CastToBool(), fail.
-        guard context.stack.count == 1, let last = context.stack.last, ScriptBoolean(last).value else {
+        guard context.stack.count == 1, let last = context.stack.last, ScriptBool(last).value else {
             throw ScriptError.falseReturned
         }
 

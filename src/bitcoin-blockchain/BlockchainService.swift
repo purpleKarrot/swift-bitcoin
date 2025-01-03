@@ -209,11 +209,11 @@ public actor BlockchainService: Sendable {
         // TODO: Notify other nodes of new tip
     }
 
-    public func generateTo(_ publicKey: PublicKey, blockTime: Date = .now) {
-        generateTo(Data(Hash160.hash(data: publicKey.data)), blockTime: blockTime)
+    public func generateTo(_ pubkey: PubKey, blockTime: Date = .now) {
+        generateTo(Data(Hash160.hash(data: pubkey.data)), blockTime: blockTime)
     }
 
-    public func generateTo(_ publicKeyHash: Data, blockTime: Date = .now) {
+    public func generateTo(_ pubkeyHash: Data, blockTime: Date = .now) {
         if blocks.isEmpty {
             createGenesisBlock()
         }
@@ -224,7 +224,7 @@ public actor BlockchainService: Sendable {
         }
 
         let witnessMerkleRoot = calculateWitnessMerkleRoot(mempool)
-        let coinbaseTx = BitcoinTx.makeCoinbaseTx(blockHeight: tip, publicKeyHash: publicKeyHash, witnessMerkleRoot: witnessMerkleRoot, blockSubsidy: consensusParams.blockSubsidy)
+        let coinbaseTx = BitcoinTx.makeCoinbaseTx(blockHeight: tip, pubkeyHash: pubkeyHash, witnessMerkleRoot: witnessMerkleRoot, blockSubsidy: consensusParams.blockSubsidy)
 
         let previousBlockHash = blocks.last!.id
         let newTxs = [coinbaseTx] + mempool

@@ -132,8 +132,8 @@ actor RPCService: Service {
             try await rpcDisconnect(request, outbound: outbound)
         case GetStatusCommand.method:
             try await rpcStatus(request, outbound: outbound)
-        case GenerateToPublicKeyCommand.method:
-            let command = GenerateToPublicKeyCommand(blockchainService: blockchainService)
+        case GenerateToPubkeyCommand.method:
+            let command = GenerateToPubkeyCommand(blockchainService: blockchainService)
             do {
                 try await outbound.write(command.run(request))
             } catch let error as RPCError {

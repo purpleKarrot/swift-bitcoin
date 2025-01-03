@@ -12,9 +12,9 @@ struct BaseDocumentationExamples {
         let fund = BitcoinTx(ins: [
             .init(outpoint: .coinbase)
         ], outs: [
-            .init(value: 100, script: .payToPublicKey(sk.publicKey)),
-            .init(value: 100, script: .payToPublicKeyHash(sk.publicKey)),
-            .init(value: 100, script: .payToWitnessPublicKeyHash(sk.publicKey)),
+            .init(value: 100, script: .payToPubkey(sk.pubkey)),
+            .init(value: 100, script: .payToPubkeyHash(sk.pubkey)),
+            .init(value: 100, script: .payToWitnessPubkeyHash(sk.pubkey)),
             // Pay-to-taproot requires an internal key instead of the regular public key.
             .init(value: 100, script: .payToTaproot(internalKey: sk.taprootInternalKey)),
             .init(value: 0, script: .dataCarrier("Hello, Bitcoin!"))
@@ -51,14 +51,14 @@ struct BaseDocumentationExamples {
         let sighash1 = hasher.value
         let sig1 = sk.sign(hash: sighash1)
         let sigExt1 = ExtendedSig(sig1, .all)
-        spend.ins[1].script = [.pushBytes(sigExt1.data), .pushBytes(sk.publicKey.data)]
+        spend.ins[1].script = [.pushBytes(sigExt1.data), .pushBytes(sk.pubkey.data)]
 
         // For pay-to-witness-public-key-hash we sign a different hash and we add the signature and public key to the input's _witness_.
         hasher.set(txIn: 2, sigVersion: .witnessV0, prevout: prevout2)
         let sighash2 = hasher.value
         let sig2 = sk.sign(hash: sighash2)
         let sigExt2 = ExtendedSig(sig2, .all)
-        spend.ins[2].witness = .init([sigExt2.data, sk.publicKey.data])
+        spend.ins[2].witness = .init([sigExt2.data, sk.pubkey.data])
 
         // For pay-to-taproot with key we need a different sighash and a _tweaked_ version of our secret key to sign it. We use the default sighash type which is equal to _all_.
         hasher.set(txIn: 3, sigVersion: .witnessV1, prevouts: [prevout0, prevout1, prevout2, prevout3], sighashType: Optional.none)
@@ -77,7 +77,7 @@ struct BaseDocumentationExamples {
 
         let fund = BitcoinTx(ins: [.init(outpoint: .coinbase)], outs: [
             // Multisig 2-out-of-3
-            .init(value: 100, script: .payToMultiSignature(2, of: sk1.publicKey, sk2.publicKey, sk3.publicKey)),
+            .init(value: 100, script: .payToMultiSignature(2, of: sk1.pubkey, sk2.pubkey, sk3.pubkey)),
         ])
 
         var spend = BitcoinTx(ins: [.init(outpoint: fund.outpoint(0))], outs: [
@@ -109,7 +109,7 @@ struct BaseDocumentationExamples {
     @Test func signScriptHashMultisig() async throws {
         let sk1 = SecretKey(); let sk2 = SecretKey(); let sk3 = SecretKey()
 
-        let redeemScript = BitcoinScript.payToMultiSignature(2, of: sk1.publicKey, sk2.publicKey, sk3.publicKey)
+        let redeemScript = BitcoinScript.payToMultiSignature(2, of: sk1.pubkey, sk2.pubkey, sk3.pubkey)
 
         let fund = BitcoinTx(ins: [.init(outpoint: .coinbase)], outs: [
             .init(value: 100, script: .payToScriptHash(redeemScript)),
@@ -140,7 +140,7 @@ struct BaseDocumentationExamples {
 
     @Test func signWitnessScriptHashMultisig() async throws {
         let sk1 = SecretKey(); let sk2 = SecretKey(); let sk3 = SecretKey()
-        let redeemScript = BitcoinScript.payToMultiSignature(2, of: sk1.publicKey, sk2.publicKey, sk3.publicKey)
+        let redeemScript = BitcoinScript.payToMultiSignature(2, of: sk1.pubkey, sk2.pubkey, sk3.pubkey)
 
         let fund = BitcoinTx(ins: [
             .init(outpoint: .coinbase)
@@ -177,7 +177,7 @@ struct BaseDocumentationExamples {
     @Test func signScriptHashWitnessKey() async throws {
         let sk = SecretKey()
 
-        let redeemScript = BitcoinScript.payToWitnessPublicKeyHash(sk.publicKey)
+        let redeemScript = BitcoinScript.payToWitnessPubkeyHash(sk.pubkey)
 
         let fund = BitcoinTx(ins: [.init(outpoint: .coinbase)], outs: [
             .init(value: 100, script: .payToScriptHash(redeemScript)),
@@ -192,9 +192,9 @@ struct BaseDocumentationExamples {
             .init(value: 100)
         ])
 
-        let publicKey = sk.publicKey
-        let publicKeyHash = Data(Hash160.hash(data: publicKey.data))
-        let scriptCode = BitcoinScript.segwitPKHScriptCode(publicKeyHash).data
+        let pubkey = sk.pubkey
+        let pubkeyHash = Data(Hash160.hash(data: pubkey.data))
+        let scriptCode = BitcoinScript.segwitPKHScriptCode(pubkeyHash).data
 
         // Same sighash for all signatures
         let txIn = 0
@@ -204,7 +204,7 @@ struct BaseDocumentationExamples {
         let sig = sk.sign(hash: sighash)
         let sigExt = ExtendedSig(sig, sighashType)
 
-        spend.ins[txIn].witness = .init([sigExt.data, publicKey.data])
+        spend.ins[txIn].witness = .init([sigExt.data, pubkey.data])
         spend.ins[txIn].script = [.encodeMinimally(redeemScript.data)]
 
         let result = spend.verifyScript(prevouts: [prevout])
@@ -214,7 +214,7 @@ struct BaseDocumentationExamples {
     @Test func signScriptHashWitnessScript() async throws {
         let sk1 = SecretKey(); let sk2 = SecretKey(); let sk3 = SecretKey()
 
-        let witnessScript = BitcoinScript.payToMultiSignature(2, of: sk1.publicKey, sk2.publicKey, sk3.publicKey)
+        let witnessScript = BitcoinScript.payToMultiSignature(2, of: sk1.pubkey, sk2.pubkey, sk3.pubkey)
         let redeemScript = BitcoinScript.payToWitnessScriptHash(witnessScript)
 
         let fund = BitcoinTx(ins: [.init(outpoint: .coinbase)], outs: [
@@ -255,16 +255,16 @@ struct BaseDocumentationExamples {
         let sk = SecretKey()
         let sk1 = SecretKey(); let sk2 = SecretKey(); let sk3 = SecretKey()
         let internalKey = sk.taprootInternalKey
-        let publicKey1 = sk1.xOnlyPublicKey
-        let publicKey2 = sk2.xOnlyPublicKey
-        let publicKey3 = sk3.xOnlyPublicKey
+        let pubkey1 = sk1.xOnlyPubkey
+        let pubkey2 = sk2.xOnlyPubkey
+        let pubkey3 = sk3.xOnlyPubkey
 
         let tapscript = BitcoinScript([
-            .encodeMinimally(publicKey1.xOnlyData),
+            .encodeMinimally(pubkey1.xOnlyData),
             .checkSig,
-            .encodeMinimally(publicKey2.xOnlyData),
+            .encodeMinimally(pubkey2.xOnlyData),
             .checkSigAdd,
-            .encodeMinimally(publicKey3.xOnlyData),
+            .encodeMinimally(pubkey3.xOnlyData),
             .checkSigAdd,
             .constant(2),
             .equal
@@ -311,7 +311,7 @@ struct BaseDocumentationExamples {
     @Test func standaloneScript() async throws {
         let stack = try BitcoinScript([.constant(1), .constant(1), .add]).run()
         #expect(stack.count == 1)
-        let number = try ScriptNumber(stack[0])
+        let number = try ScriptNum(stack[0])
         #expect(number.value == 2)
     }
 }

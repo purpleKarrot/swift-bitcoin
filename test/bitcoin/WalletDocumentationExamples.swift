@@ -47,13 +47,13 @@ struct WalletDocumentationExamples {
         let sk = SecretKey()
 
         let p2pkh = LegacyAddress(sk)
-        let p2sh_p2wpkh = LegacyAddress(.payToWitnessPublicKeyHash(sk.publicKey))
+        let p2sh_p2wpkh = LegacyAddress(.payToWitnessPubkeyHash(sk.pubkey))
         let p2wpkh = SegwitAddress(sk)
         let p2tr = TaprootAddress(sk)
 
         // The funding transaction.
         let fund = BitcoinTx(ins: [.init(outpoint: .coinbase)], outs: [
-            .init(value: 100, script: .payToPublicKey(sk.publicKey)),
+            .init(value: 100, script: .payToPubkey(sk.pubkey)),
             p2pkh.out(200),
             p2sh_p2wpkh.out(300),
             p2wpkh.out(400),
@@ -90,7 +90,7 @@ struct WalletDocumentationExamples {
         let sk1 = SecretKey(); let sk2 = SecretKey(); let sk3 = SecretKey()
 
         // Multisig 2-out-of-3
-        let multisigScript = BitcoinScript.payToMultiSignature(2, of: sk1.publicKey, sk2.publicKey, sk3.publicKey)
+        let multisigScript = BitcoinScript.payToMultiSignature(2, of: sk1.pubkey, sk2.pubkey, sk3.pubkey)
 
         // Some different types of addresses
         let p2sh = LegacyAddress(multisigScript)

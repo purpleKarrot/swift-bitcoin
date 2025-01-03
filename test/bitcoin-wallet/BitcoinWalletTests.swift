@@ -10,8 +10,8 @@ struct BitcoinWalletTests {
     @Test("Message signing")
     func messageSigning() async throws {
         let secretKey = try #require(SecretKey(Data([0x45, 0x85, 0x1e, 0xe2, 0x66, 0x2f, 0x0c, 0x36, 0xf4, 0xfd, 0x2a, 0x7d, 0x53, 0xa0, 0x8f, 0x7b, 0x06, 0xc7, 0xab, 0xfd, 0x61, 0x95, 0x3c, 0x52, 0x16, 0xcc, 0x39, 0x7c, 0x4f, 0x2c, 0xae, 0x8c])))
-        let compressedPublicKeys = true
-        let wif = secretKey.toWIF(compressedPublicKeys: compressedPublicKeys, mainnet: false)
+        let compressedPubkeys = true
+        let wif = secretKey.toWIF(compressedPubkeys: compressedPubkeys, mainnet: false)
         #expect(wif == "cPuqe8derNHnWuMtRfDUb8CGwuStiEeVAniZTHrmf9yTWyu7n481")
 
         var metadataOptional = SecretKey.WIFMetadata?.none
@@ -19,19 +19,19 @@ struct BitcoinWalletTests {
         let metadata = try #require(metadataOptional)
         #expect(secretKey2 == secretKey)
         #expect(!metadata.isMainnet)
-        #expect(metadata.compressedPublicKeys == compressedPublicKeys)
+        #expect(metadata.compressedPubkeys == compressedPubkeys)
 
         let message = "Hello, Bitcoin!"
         let messageData = try #require(message.data(using: .utf8))
-        let sig = Signature(messageData: messageData, secretKey: secretKey2, type: .recoverable, recoverCompressedKeys: metadata.compressedPublicKeys)
+        let sig = AnySig(messageData: messageData, secretKey: secretKey2, type: .recoverable, recoverCompressedKeys: metadata.compressedPubkeys)
 
         #expect(sig.base64 == "IN97K44jABXPVVQ5dnPo0AcLpmG/Q0b73Yxr6JQvIFtPJJQhshb4NJ2nHjqtRhKIUNGnFGr+tlHxzoOw6xpmJ5I=")
 
         let address = "miueyHbQ33FDcjCYZpVJdC7VBbaVQzAUg5"
         // Decode P2PKH address
         let addressDecoded = try #require(LegacyAddress(address))
-        let result = if let publicKey = sig.recoverPublicKey(messageData: messageData) {
-            Data(Hash160.hash(data: publicKey.data)) == addressDecoded.hash
+        let result = if let pubkey = sig.recoverPubkey(messageData: messageData) {
+            Data(Hash160.hash(data: pubkey.data)) == addressDecoded.hash
         } else {
             false
         }
@@ -41,9 +41,9 @@ struct BitcoinWalletTests {
     /// Verifies fix for bug #263
     @Test func addressDecoding() throws {
         let addressText = "1MMgabnpMVKTnYXwJfupDJRpWNJmUay8cP"
-        let publicKeyData = try #require(Data(hex: "029a3865b2488e2fee75336d1048c1d0795a088368a0caa4adc076425c90227bc3"))
-        let publicKey = try #require(PublicKey(publicKeyData))
-        let address1 = LegacyAddress(publicKey, mainnet: true)
+        let pubkeyData = try #require(Data(hex: "029a3865b2488e2fee75336d1048c1d0795a088368a0caa4adc076425c90227bc3"))
+        let pubkey = try #require(PubKey(pubkeyData))
+        let address1 = LegacyAddress(pubkey, mainnet: true)
         let addressText1 = address1.description
         #expect(addressText1 == addressText)
         let address2 = try #require(LegacyAddress(addressText1))

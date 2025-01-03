@@ -4,14 +4,14 @@ extension ScriptContext {
     
     /// Implementation of a constant script operation.
     mutating func opConstant(_ k: UInt8) {
-        stack.append(ScriptNumber(k).data)
+        stack.append(ScriptNum(k).data)
     }
     
     /// Pushes the string length of the top element of the stack (without popping it).
     mutating func opSize() throws {
         let first = try getUnaryParam()
         stack.append(first)
-        let n = try ScriptNumber(first.count)
+        let n = try ScriptNum(first.count)
         stack.append(n.data)
     }
 

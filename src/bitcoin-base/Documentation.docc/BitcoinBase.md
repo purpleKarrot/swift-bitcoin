@@ -28,7 +28,7 @@ let unsignedTx = BitcoinTx(
         .init(value: 49_99_999_000, script: .init([
             .dup,
             .hash160,
-            .pushBytes(publicKeyHash),
+            .pushBytes(pubkeyHash),
             .equalVerify,
             .checkSig
         ]))

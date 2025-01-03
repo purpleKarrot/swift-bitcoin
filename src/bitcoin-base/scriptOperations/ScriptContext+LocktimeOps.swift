@@ -5,7 +5,7 @@ extension ScriptContext {
     /// [BIP65](https://github.com/bitcoin/bips/blob/master/bip-0065.mediawiki)
     mutating func opCheckLockTimeVerify() throws {
         let first = try getUnaryParam(keep: true)
-        let locktime64 = try ScriptNumber(first, extendedLength: true, minimal: config.contains(.minimalData)).value
+        let locktime64 = try ScriptNum(first, extendedLength: true, minimal: config.contains(.minimalData)).value
 
         guard
             first.count < 6,
@@ -33,15 +33,15 @@ extension ScriptContext {
     /// [BIP112](https://github.com/bitcoin/bips/blob/master/bip-0112.mediawiki)
     mutating func opCheckSequenceVerify() throws {
         let first = try getUnaryParam(keep: true)
-        let sequence64 = try ScriptNumber(first, extendedLength: true, minimal: config.contains(.minimalData)).value
+        let sequence64 = try ScriptNum(first, extendedLength: true, minimal: config.contains(.minimalData)).value
         
         guard
             first.count < 6,
             sequence64 >= 0,
-            sequence64 <= InputSequence.maxCSVArgument
+            sequence64 <= TxSequence.maxCSVArgument
         else { throw ScriptError.invalidSequenceArgument }
         
-        let sequence = InputSequence(sequence64)
+        let sequence = TxSequence(sequence64)
         if sequence.isLocktimeDisabled { return }
         
         if tx.version == .v1 { throw ScriptError.minimumTxVersionRequired }

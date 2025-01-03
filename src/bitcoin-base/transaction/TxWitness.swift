@@ -3,7 +3,7 @@ import Foundation
 /// Witness data associated with a particular ``TxIn``.
 ///
 /// Refer to BIP141 for more information.
-public struct InputWitness: Equatable, Sendable {
+public struct TxWitness: Equatable, Sendable {
 
     public init(_ elements: [Data]) {
         self.elements = elements
@@ -24,7 +24,7 @@ public struct InputWitness: Equatable, Sendable {
 }
 
 /// Data extensions.
-extension InputWitness {
+extension TxWitness {
 
     init?(_ data: Data) {
         var data = data

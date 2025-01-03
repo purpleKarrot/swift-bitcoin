@@ -7,7 +7,7 @@ struct ScriptTests {
     /// It is evaluated as if there was a crediting coinbase transaction with two 0 pushes as scriptSig, and one output of 0 satoshi and given scriptPubKey, followed by a spending transaction which spends this output as only input (and correct prevout hash), using the given scriptSig. All nLockTimes are 0, all nSequences are max.
     @Test("Script test vectors", arguments: [
         // Format is: ([wit..., amount]?, scriptSig, scriptPubKey, flags, expected_scripterror, ... comments)
-        TestVector(.empty, [ScriptOperation.depth, .zero, .equal], [.strictEncoding, .payToScriptHash], true, [], "Test the test: we should have an empty stack after scriptSig evaluation"),
+        TestVector(.empty, [ScriptOp.depth, .zero, .equal], [.strictEncoding, .payToScriptHash], true, [], "Test the test: we should have an empty stack after scriptSig evaluation"),
             // Some missing _test the test_ tests involving spaces in data which are not applicable here.
             .init(.init([.constant(1), .constant(2)]), .init([.constant(2), .equalVerify, .constant(1), .equal]), [.strictEncoding, .payToScriptHash], true, [], "Similarly whitespace around and between symbols"),
             // Additional missing _test the test_ tests involving spaces in data which are not applicable here.
@@ -35,9 +35,9 @@ struct ScriptTests {
         )
 
         let witness = if let witnessElements = test.witness {
-            InputWitness(witnessElements)
+            TxWitness(witnessElements)
         } else {
-            InputWitness?.none
+            TxWitness?.none
         }
 
         let txSpend = BitcoinTx(

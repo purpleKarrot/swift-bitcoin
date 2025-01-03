@@ -5,7 +5,7 @@ public extension SecretKey {
 
     struct WIFMetadata {
         public let isMainnet: Bool
-        public let compressedPublicKeys: Bool
+        public let compressedPubkeys: Bool
     }
 
     init?(wif: String) {
@@ -27,29 +27,29 @@ public extension SecretKey {
         }
         let isMainnet = versionByte == Self.base58VersionMain
 
-        let compressedPublicKeys: Bool
-        if secretKeyData.count == PublicKey.compressedLength, let last = secretKeyData.popLast() {
+        let compressedPubkeys: Bool
+        if secretKeyData.count == PubKey.compressedLength, let last = secretKeyData.popLast() {
             guard last == 0x01 else {
                 // throw WalletError.invalidSecretKeyEncoding
                 return nil
             }
-            compressedPublicKeys = true
+            compressedPubkeys = true
         } else {
             guard secretKeyData.count == SecretKey.keyLength else {
                 // throw WalletError.invalidSecretKeyEncoding
                 return nil
             }
-            compressedPublicKeys = false
+            compressedPubkeys = false
         }
-        metadata = .init(isMainnet: isMainnet, compressedPublicKeys: compressedPublicKeys)
+        metadata = .init(isMainnet: isMainnet, compressedPubkeys: compressedPubkeys)
         self.init(secretKeyData)
     }
 
-    func toWIF(compressedPublicKeys: Bool = true, mainnet: Bool = true) -> String {
+    func toWIF(compressedPubkeys: Bool = true, mainnet: Bool = true) -> String {
         var data = Data()
         data.appendBytes(mainnet ? Self.base58VersionMain : Self.base58VersionTest)
         data.append(self.data)
-        if compressedPublicKeys {
+        if compressedPubkeys {
             data.appendBytes(UInt8(0x01))
         }
         return Base58Encoder().encode(data)

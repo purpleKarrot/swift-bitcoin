@@ -30,11 +30,11 @@ struct MessageVerify: ParsableCommand {
         guard let sigData = Data(base64Encoded: sig) else {
             throw ValidationError("Invalid Base64-encoded signature: signature")
         }
-        guard let sig = Signature(sigData, type: .recoverable) else {
+        guard let sig = AnySig(sigData, type: .recoverable) else {
             throw ValidationError("Invalid signature data: signature")
         }
-        let result = if let publicKey = sig.recoverPublicKey(messageData: messageData) {
-            Data(Hash160.hash(data: publicKey.data)) == address.hash
+        let result = if let pubkey = sig.recoverPubkey(messageData: messageData) {
+            Data(Hash160.hash(data: pubkey.data)) == address.hash
         } else {
             false
         }

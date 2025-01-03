@@ -35,15 +35,15 @@ public struct SecretKey: Equatable, CustomStringConvertible {
 
     public var description: String { data.hex }
 
-    public var publicKey: PublicKey { .init(self) }
+    public var pubkey: PubKey { .init(self) }
 
-    package var xOnlyPublicKey: PublicKey { .init(self, requireEvenY: true) }
+    package var xOnlyPubkey: PubKey { .init(self, requireEvenY: true) }
 
-    public func sign(_ message: String, sigType: SigType = .ecdsa, recoverCompressedKeys: Bool = true) -> Signature? {
+    public func sign(_ message: String, sigType: SigType = .ecdsa, recoverCompressedKeys: Bool = true) -> AnySig? {
         .init(message: message, secretKey: self, type: sigType, recoverCompressedKeys: recoverCompressedKeys)
     }
 
-    public func sign(hash: Data, sigType: SigType = .ecdsa, recoverCompressedKeys: Bool = true) -> Signature {
+    public func sign(hash: Data, sigType: SigType = .ecdsa, recoverCompressedKeys: Bool = true) -> AnySig {
         .init(hash: hash, secretKey: self, type: sigType, recoverCompressedKeys: recoverCompressedKeys)
     }
 
