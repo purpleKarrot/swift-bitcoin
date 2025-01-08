@@ -61,6 +61,7 @@ public struct PeerState: Sendable {
     // Status
     public internal(set) var height = 0
     public internal(set) var lastPingNonce = UInt64?.none
+    public private(set) var knownBlocks = [BlockID]()
 
     var nextPingTask: Task<(), Never>?
     var checkPongTask: Task<(), Never>?
@@ -77,4 +78,14 @@ public struct PeerState: Sendable {
         v2AddressPreferenceReceived &&
         versionAckReceived
     }
+
+    mutating func registerKnownBlocks(_ ids: [BlockID]) {
+        knownBlocks = knownBlocks + ids
+        let count = knownBlocks.count
+        if count > maxKnownBlocks {
+            knownBlocks.removeFirst(count - maxKnownBlocks)
+        }
+    }
 }
+
+private let maxKnownBlocks = 3

@@ -65,6 +65,10 @@ public actor NodeService: Sendable {
     public func handleBlock(_ block: TxBlock) async {
         await withDiscardingTaskGroup {
             for id in state.peers.keys {
+                let peer = state.peers[id]!
+                guard !peer.knownBlocks.contains(block.id) else {
+                    continue
+                }
                 $0.addTask {
                     await self.sendBlock(block, to: id)
                 }
@@ -513,9 +517,12 @@ public actor NodeService: Sendable {
         guard let headersMessage = HeadersMessage(message.payload) else {
             throw Error.invalidPayload
         }
+
+        state.peers[id]!.registerKnownBlocks(headersMessage.items.map(\.id))
+
         do {
             try await blockchainService.processHeaders(headersMessage.items)
-        } catch is BlockchainService.Error {
+        } catch {
             state.peers[id]?.height = await blockchainService.blocks.count - 1
         }
 

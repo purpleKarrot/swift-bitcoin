@@ -116,32 +116,32 @@ public actor BlockchainService: Sendable {
         return headers
     }
 
-    public func processHeaders(_ newHeaders: [TxBlock]) throws {
+    public func processHeaders(_ newHeaders: [TxBlock]) throws(Error) {
         var height = blocks.count
         for var newHeader in newHeaders {
 
             guard newHeader.version == 0x20000000 else {
-                throw Error.unsupportedBlockVersion
+                throw .unsupportedBlockVersion
             }
 
             let lastVerifiedHeader = blocks.last!
             guard lastVerifiedHeader.id == newHeader.previous else {
-                throw Error.orphanHeader
+                throw .orphanHeader
             }
 
             guard newHeader.time >= getMedianTimePast() else {
-                throw Error.headerTooOld
+                throw .headerTooOld
             }
 
             var calendar = Calendar(identifier: .iso8601)
             calendar.timeZone = .gmt
             guard newHeader.time <= calendar.date(byAdding: .hour, value: 2, to: .now)! else {
-                throw Error.headerTooNew
+                throw .headerTooNew
             }
 
             let target = getNextWorkRequired(forHeight: blocks.endIndex.advanced(by: -1), newBlockTime: newHeader.time, params: consensusParams)
             guard DifficultyTarget(compact: newHeader.target) <= DifficultyTarget(compact: target), DifficultyTarget(newHeader.hash) <= DifficultyTarget(compact: newHeader.target) else {
-                throw Error.insuficientProofOfWork
+                throw .insuficientProofOfWork
             }
             let chainwork = lastVerifiedHeader.work + newHeader.work
             newHeader.context = .init(height: height, chainwork: chainwork, status: .header)
@@ -206,7 +206,18 @@ public actor BlockchainService: Sendable {
             blocks.append(newBlock)
         }
         tip += 1
-        // TODO: Notify other nodes of new tip
+
+        // Notify other nodes of new tip
+        let blockJustAdded = blocks[tip - 1]
+        Task {
+            await withDiscardingTaskGroup {
+                for channel in blockChannels {
+                    $0.addTask {
+                        await channel.send(blockJustAdded)
+                    }
+                }
+            }
+        }
     }
 
     public func generateTo(_ pubkey: PubKey, blockTime: Date = .now) {
