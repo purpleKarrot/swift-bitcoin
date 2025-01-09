@@ -1,4 +1,5 @@
 import Foundation
+import BitcoinBase
 
 public struct ConsensusParams: Sendable {
     public init(powLimit: Data, powTargetTimespan: Int, powTargetSpacing: Int, powAllowMinDifficultyBlocks: Bool, powNoRetargeting: Bool, blockSubsidy: Int = 50 * 100_000_000, genesisBlockTime: Int, genesisBlockNonce: Int, genesisBlockTarget: Int) {
@@ -18,17 +19,22 @@ public struct ConsensusParams: Sendable {
     public let powTargetSpacing: Int
     public let powAllowMinDifficultyBlocks: Bool
     public let powNoRetargeting: Bool
-    public var blockSubsidy = 50 * 100_000_000
+
     public let genesisBlockTime: Int
     public let genesisBlockNonce: Int
     public let genesisBlockTarget: Int
 
+    /// The initial block subsidy which defaults to 5 billion satoshis or 50 bitcoins.
+    public var blockSubsidy = SatoshiAmount(5_000_000_000)
+
+    ///
+    public let subsidyHalvingInterval = 150
+    // consensus.nRuleChangeActivationThreshold = 108; // 75% for testchains
+    // consensus.nMinerConfirmationWindow = 144; // Faster than normal for regtest (144 instead of 2016)
+
     public var difficultyAdjustmentInterval: Int {
         powTargetTimespan / powTargetSpacing
     }
-    // consensus.nSubsidyHalvingInterval = 150;
-    // consensus.nRuleChangeActivationThreshold = 108; // 75% for testchains
-    // consensus.nMinerConfirmationWindow = 144; // Faster than normal for regtest (144 instead of 2016)
 
     public static let mainnet = Self(
         powLimit: Data([0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]),
@@ -51,4 +57,35 @@ public struct ConsensusParams: Sendable {
         genesisBlockNonce: 2,
         genesisBlockTarget: 0x207fffff
     )
+
+    // MARK: - Flags from `consensus.h` in Bitcoin Core.
+
+    /// The maximum allowed size for a serialized block, in bytes (only for buffer size limits)
+    /// Unused as of Jan 8 2025
+    private static let maxBlockSerializedSized = 4_000_000
+
+    /// The maximum allowed weight for a block, see BIP141 (network rule)
+    public static let maxBlockWeight = 4_000_000
+
+    /// The maximum allowed number of signature check operations in a block (network rule)
+    private static let maxBlockSigopsCost = 80_000
+
+    /// Coinbase transaction outputs can only be spent after this number of new blocks (network rule)
+    public static let coinbaseMaturity = 100
+
+    private static let witnessScaleFactor = 4
+
+    /// `MIN_TRANSACTION_WEIGHT` in Bitcoin Core.
+    private static let minTransactionWeight = witnessScaleFactor * 60 // 60 is the lower bound for the size of a valid serialized CTransaction
+
+    /// `MIN_SERIALIZABLE_TRANSACTION_WEIGHT` in Bitcoin Core.
+    private static let minSerializableTransactionWeight = witnessScaleFactor * 10 // 10 is the lower bound for the size of a serialized CTransaction
+
+    // MARK: - Flags for nSequence and nLockTime locks
+
+    /// Interpret sequence numbers as relative lock-time constraints.
+    private static let locktimeVerifySequence = 1 << 0
+
+    /// Maximum number of seconds that the timestamp of the first block of a difficulty adjustment period is allowed to be earlier than the last block of the previous period (BIP94).
+    private static let maxTimewarp = 600
 }

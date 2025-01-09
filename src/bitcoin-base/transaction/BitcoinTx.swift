@@ -60,6 +60,10 @@ public struct BitcoinTx: Equatable, Sendable {
         ins.count == 1 && ins[0].outpoint == TxOutpoint.coinbase
     }
 
+    public var valueOut: SatoshiAmount {
+        outs.reduce(0) { $0 + $1.value }
+    }
+
     /// BIP141
     var hasWitness: Bool { ins.contains { $0.witness != .none } }
 
@@ -74,12 +78,7 @@ public struct BitcoinTx: Equatable, Sendable {
     // MARK: - Type Properties
 
     /// The total amount of bitcoin supply is actually less than this number. But `maxMoney` as a limit for any amount is a  consensus-critical constant.
-    static let maxMoney = 2_100_000_000_000_000
-
-    /// Coinbase transaction outputs can only be spent after this number of new blocks (network rule).
-    static let coinbaseMaturity = 100
-
-    static let maxBlockWeight = 4_000_000
+    static package let maxMoney = 2_100_000_000_000_000
 
     // MARK: - Type Methods
 
