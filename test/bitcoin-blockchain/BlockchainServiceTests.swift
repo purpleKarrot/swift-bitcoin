@@ -30,7 +30,7 @@ struct BlockchainServiceTests {
         let block1 = await alice.getBlock(1)
         #expect(bobMissingBlocks.count == 1 && bobMissingBlock == header1 && bobMissingBlock.txs == block1.txs)
 
-        await bob.processBlock(block1)
+        try await bob.processBlock(block1)
         await #expect(bob.tip == 2)
     }
 
@@ -63,11 +63,11 @@ struct BlockchainServiceTests {
         let bobBlocks1to2 = await bob.getBlocks(aliceMissing)
         #expect(bobBlocks1to2.count == 2)
 
-        await alice.processBlock(bobBlocks1to2[0])
+        try await alice.processBlock(bobBlocks1to2[0])
         await #expect(alice.blocks.count == 4)
         await #expect(alice.tip == 2)
 
-        await alice.processBlock(bobBlocks1to2[1])
+        try await alice.processBlock(bobBlocks1to2[1])
         await #expect(alice.blocks.count == 4)
         await #expect(alice.tip == 3)
 
@@ -77,7 +77,7 @@ struct BlockchainServiceTests {
         let bobBlocks3to3 = await bob.getBlocks(aliceMissing2)
         #expect(bobBlocks3to3.count == 1)
 
-        await alice.processBlock(bobBlocks3to3[0])
+        try await alice.processBlock(bobBlocks3to3[0])
         await #expect(alice.blocks.count == 4)
         await #expect(alice.tip == 4)
     }
@@ -93,9 +93,6 @@ struct BlockchainServiceTests {
 
         // Instantiate a fresh Bitcoin service (regtest).
         let service = BlockchainService()
-
-        // Create the genesis block.
-        await service.createGenesisBlock()
 
         // Mine 100 blocks so block 1's coinbase output reaches maturity.
         for _ in 0 ..< 100 {
@@ -191,7 +188,6 @@ struct BlockchainServiceTests {
             genesisBlockNonce: 2,
             genesisBlockTarget: 0x207fffff
         ))
-        await service.createGenesisBlock()
         let genesisBlock = await service.genesisBlock
 
         #expect(genesisBlock.target == 0x207fffff)

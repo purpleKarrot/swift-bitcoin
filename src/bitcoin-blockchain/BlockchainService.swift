@@ -10,9 +10,15 @@ public actor BlockchainService: Sendable {
     }
 
     let consensusParams: ConsensusParams
+
     public private(set) var blocks = [TxBlock]()
-    public private(set) var mempool = [BitcoinTx]()
     public private(set) var tip = 0
+
+    public private(set) var mempool = [BitcoinTx]()
+
+    private var coins = [TxOutpoint: UnspentOut]()
+    private var mempoolExclude = [TxOutpoint]()
+    private var mempoolCoins = [TxOutpoint: UnspentOut]()
 
     /// Subscriptions to new blocks.
     private var blockChannels = [AsyncChannel<TxBlock>]()
@@ -42,16 +48,16 @@ public actor BlockchainService: Sendable {
 
     /// Adds a transaction to the mempool.
     public func addTx(_ tx: BitcoinTx) throws {
-        // TODO: Check transaction.
-        guard getTx(tx.id) == .none else { return }
+        guard !mempool.contains(tx) else { return }
+        guard checkTx(tx) else { return }
         mempool.append(tx)
-    }
-
-    public func createGenesisBlock() {
-        guard blocks.isEmpty else { return }
-        let genesisBlock = TxBlock.makeGenesisBlock(consensusParams: consensusParams)
-        blocks.append(genesisBlock)
-        tip += 1
+        // Remove coins
+        mempoolExclude += tx.ins.map(\.outpoint)
+        // Add coins
+        let txid = tx.id
+        for out in tx.outs.enumerated() {
+            mempoolCoins[.init(tx: txid, txOut: out.offset)] = .init(out.element)
+        }
     }
 
     public func subscribeToBlocks() -> AsyncChannel<TxBlock> {
@@ -116,37 +122,38 @@ public actor BlockchainService: Sendable {
         return headers
     }
 
-    public func processHeaders(_ newHeaders: [TxBlock]) throws(Error) {
-        var height = blocks.count
-        for var newHeader in newHeaders {
+    private func checkHeader(_ header: inout TxBlock) throws(Error) {
+        guard header.version == 0x20000000 else {
+            throw .unsupportedBlockVersion
+        }
 
-            guard newHeader.version == 0x20000000 else {
-                throw .unsupportedBlockVersion
-            }
+        let lastHeader = blocks.last!
+        guard lastHeader.id == header.previous else {
+            throw .orphanHeader
+        }
 
-            let lastVerifiedHeader = blocks.last!
-            guard lastVerifiedHeader.id == newHeader.previous else {
-                throw .orphanHeader
-            }
+        guard header.time >= getMedianTimePast() else {
+            throw .headerTooOld
+        }
 
-            guard newHeader.time >= getMedianTimePast() else {
-                throw .headerTooOld
-            }
+        var calendar = Calendar(identifier: .iso8601)
+        calendar.timeZone = .gmt
+        guard header.time <= calendar.date(byAdding: .hour, value: 2, to: .now)! else {
+            throw .headerTooNew
+        }
 
-            var calendar = Calendar(identifier: .iso8601)
-            calendar.timeZone = .gmt
-            guard newHeader.time <= calendar.date(byAdding: .hour, value: 2, to: .now)! else {
-                throw .headerTooNew
-            }
+        let target = getNextWorkRequired(forHeight: blocks.endIndex.advanced(by: -1), newBlockTime: header.time, params: consensusParams)
+        guard DifficultyTarget(compact: header.target) <= DifficultyTarget(compact: target), DifficultyTarget(header.hash) <= DifficultyTarget(compact: header.target) else {
+            throw .insuficientProofOfWork
+        }
+        let chainwork = lastHeader.work + header.work
+        header.context = .init(height: blocks.count, chainwork: chainwork, status: .header)
+    }
 
-            let target = getNextWorkRequired(forHeight: blocks.endIndex.advanced(by: -1), newBlockTime: newHeader.time, params: consensusParams)
-            guard DifficultyTarget(compact: newHeader.target) <= DifficultyTarget(compact: target), DifficultyTarget(newHeader.hash) <= DifficultyTarget(compact: newHeader.target) else {
-                throw .insuficientProofOfWork
-            }
-            let chainwork = lastVerifiedHeader.work + newHeader.work
-            newHeader.context = .init(height: height, chainwork: chainwork, status: .header)
-            blocks.append(newHeader)
-            height += 1
+    public func processHeaders(_ headers: [TxBlock]) throws(Error) {
+        for var header in headers {
+            try checkHeader(&header)
+            blocks.append(header)
         }
     }
 
@@ -172,52 +179,186 @@ public actor BlockchainService: Sendable {
         return ret
     }
 
-    public func processBlock(_ block: TxBlock) {
-        if tip < blocks.count {
-            guard block.headerData == blocks[tip].headerData else {
-                return
+    /// This function is called when validating a transaction and it's consensus critical. Needs to be called after ``check()``
+    private func checkTxIns(_ tx: BitcoinTx, exclude: [TxOutpoint], auxCoins: [TxOutpoint : UnspentOut]) throws(TxError) {
+
+        let valueIn: SatoshiAmount
+        if tx.isCoinbase {
+            valueIn = getBlockSubsidy(tip)
+        } else {
+            var valueInAcc = SatoshiAmount(0)
+            for txIn in tx.ins.enumerated() {
+                let outpoint = txIn.element.outpoint
+
+                // are the actual inputs available?
+                guard let coin = coins[outpoint] ?? auxCoins[outpoint], !exclude.contains(outpoint) else {
+                    throw .inputMissingOrSpent
+                }
+                guard !coin.isCoinbase || tip - coin.height >= ConsensusParams.coinbaseMaturity else {
+                    throw .prematureCoinbaseSpend
+                }
+                valueInAcc += coin.txOut.value
+                guard coin.txOut.value >= 0 && coin.txOut.value <= BitcoinTx.maxMoney else {
+                    throw .inputValueOutOfRange
+                }
+                guard valueInAcc >= 0 && valueInAcc <= BitcoinTx.maxMoney else {
+                    throw .inputValueOutOfRange
+                }
             }
-        } else if block.previous == blocks[tip - 1].id {
-            return
+            valueIn = valueInAcc
         }
+
+        // This is guaranteed by calling Tx.check() before this function.
+        precondition(tx.valueOut >= 0 && tx.valueOut <= BitcoinTx.maxMoney)
+
+        guard valueIn >= tx.valueOut else {
+            throw .inputsValueBelowOutput
+        }
+
+        let fee = valueIn - tx.valueOut
+        guard fee >= 0 && fee <= BitcoinTx.maxMoney else {
+            throw .feeOutOfRange
+        }
+    }
+
+    private func checkTx(_ tx: BitcoinTx, exclude: [TxOutpoint]? = .none, auxCoins: [TxOutpoint : UnspentOut]? = .none) -> Bool {
+        let exclude = exclude ?? mempoolExclude
+        let auxCoins = auxCoins ?? mempoolCoins
+
+        // Check tx
+        do {
+            try tx.check(weightLimit: ConsensusParams.maxBlockWeight)
+            try checkTxIns(tx, exclude: exclude, auxCoins: auxCoins)
+
+
+            // TODO: `checkSequenceLocks(tx, verifyLockTimeSequence: Bool, coins: [TxOutpoint : UnspentOut], previousBlockMedianTimePast: Int)`
+        } catch {
+            return false
+        }
+
+        // TODO: Enforce BIP113 (Median Time Past) for block validation only (not mempool acceptance)
+        // let enforceLocktimeMedianTimePast = deploymentActiveAfter(blocks[tip], chainman, Consensus.deploymentCSV)
+        // let lockTimeCutoff = enforceLocktimeMedianTimePast ? Int(getMedianTimePast(for: tip).timeIntervalSince1970)) : blockCandidate.time
+
+        // Check that all transactions are finalized
+        guard tx.isFinal(blockHeight: tip, blockTime: Int(getMedianTimePast().timeIntervalSince1970)) else {
+            // TODO: `throw BlockValidationError.nonFinalTransaction` or the like.
+            return false
+        }
+
+        if !tx.isCoinbase {
+            var prevouts = [TxOut]()
+            for txin in tx.ins {
+                guard let coin = coins[txin.outpoint] ?? auxCoins[txin.outpoint] else {
+                    preconditionFailure() // Already checked in checkTxIns
+                }
+                prevouts.append(coin.txOut)
+            }
+            if !tx.verifyScript(prevouts: prevouts) {
+                return false // error, failed to verify tx
+            }
+        }
+        return true
+    }
+
+    private func connectBlock(_ block: TxBlock) {
+        var block = block
+        let chainwork = blocks[tip - 1].work + block.work
+        block.context =  .init(height: tip, chainwork: chainwork, status: .full)
+
+        // Add block
+        if tip < blocks.count {
+            blocks[tip] = block
+        } else {
+            blocks.append(block)
+        }
+
+        // Remove available coins
+        for tx in block.txs {
+            // Remove coins
+            for txin in tx.ins {
+                coins[txin.outpoint] = nil
+            }
+            // Add coins
+            for out in tx.outs.enumerated() {
+                coins[.init(tx: tx.id, txOut: out.offset)] = .init(out.element, height: tip, isCoinbase: tx.isCoinbase)
+            }
+        }
+
+        // Update tip
+        tip += 1
+
+        let blockCopy = block
+        // Notify other nodes of new tip
+        Task {
+            await withDiscardingTaskGroup {
+                for channel in blockChannels {
+                    $0.addTask {
+                        await channel.send(blockCopy)
+                    }
+                }
+            }
+        }
+    }
+
+    public func processBlock(_ block: TxBlock) throws(Error) {
+
+        if tip < blocks.count && block.headerData != blocks[tip].headerData {
+            // New block does not match pre-existing header for block:
+            //   Replace block entirely and remove all headers
+            blocks.removeLast(blocks.count - tip)
+        }
+
+        var block = block
+        if tip == blocks.count {
+            // We need to check the header fields
+            try checkHeader(&block)
+        }
+
         // Verify merkle root
         let expectedMerkleRoot = calculateMerkleRoot(block.txs)
         guard block.merkleRoot == expectedMerkleRoot else {
             return
         }
-        // TODO: Verify each transaction
-        for t in block.txs {
-            do {
-                try t.check()
-                // TODO: `try t.checkIns(coins: [], spendHeight: [])`
-                // TODO: `try t.isFinal(blockHeight: T##Int?, blockTime: T##Int?)`
-                // TODO: `t.checkSequenceLocks(verifyLockTimeSequence: T##Bool, coins: T##[TxOutpoint : UnspentOut], chainTip: T##Int, previousBlockMedianTimePast: T##Int)
-                // TODO: Task { t.verifyScript(prevouts: T##[TxOut], config: T##ScriptConfig) }
-            } catch {
-                return
-            }
-        }
-        let chainwork = blocks[tip - 1].work + block.work
-        var newBlock = block
-        newBlock.context =  .init(height: tip, chainwork: chainwork, status: .full)
-        if tip < blocks.count {
-            blocks[tip] = newBlock
-        } else {
-            blocks.append(newBlock)
-        }
-        tip += 1
 
-        // Notify other nodes of new tip
-        let blockJustAdded = blocks[tip - 1]
-        Task {
-            await withDiscardingTaskGroup {
-                for channel in blockChannels {
-                    $0.addTask {
-                        await channel.send(blockJustAdded)
-                    }
-                }
+        var tmpExclude = [TxOutpoint]()
+        var tmpCoins = [TxOutpoint: UnspentOut]()
+        for tx in block.txs {
+            guard checkTx(tx, exclude: tmpExclude, auxCoins: tmpCoins) else {
+                return // Error, invalid tx in block
+            }
+            // Remove coins
+            tmpExclude += tx.ins.map(\.outpoint)
+            // Add coins
+            let txid = tx.id
+            for out in tx.outs.enumerated() {
+                tmpCoins[.init(tx: txid, txOut: out.offset)] = .init(out.element, height: tip, isCoinbase: tx.isCoinbase)
             }
         }
+
+        connectBlock(block) // Will update coins
+
+        // Clean up mempool and mempoolCoins
+        var newMempool = [BitcoinTx]()
+        var mpExclude = [TxOutpoint]()
+        var mpCoins = [TxOutpoint: UnspentOut]()
+        for tx in mempool {
+            guard checkTx(tx, exclude: mpExclude, auxCoins: mpCoins) else {
+                continue // Exclude this transaction from the new mempool
+            }
+            newMempool.append(tx)
+
+            // Remove coins
+            mpExclude += tx.ins.map(\.outpoint)
+            // Add coins
+            let txid = tx.id
+            for out in tx.outs.enumerated() {
+                mpCoins[.init(tx: txid, txOut: out.offset)] = .init(out.element)
+            }
+        }
+        mempool = newMempool
+        mempoolExclude = mpExclude
+        mempoolCoins = mpCoins
     }
 
     public func generateTo(_ pubkey: PubKey, blockTime: Date = .now) {
@@ -225,9 +366,7 @@ public actor BlockchainService: Sendable {
     }
 
     public func generateTo(_ pubkeyHash: Data, blockTime: Date = .now) {
-        if blocks.isEmpty {
-            createGenesisBlock()
-        }
+        precondition(!blocks.isEmpty)
 
         guard tip == blocks.count else {
             // Waiting for pending block transactions for known headers
@@ -238,15 +377,15 @@ public actor BlockchainService: Sendable {
         let coinbaseTx = BitcoinTx.makeCoinbaseTx(blockHeight: tip, pubkeyHash: pubkeyHash, witnessMerkleRoot: witnessMerkleRoot, blockSubsidy: consensusParams.blockSubsidy)
 
         let previousBlockHash = blocks.last!.id
-        let newTxs = [coinbaseTx] + mempool
-        let merkleRoot = calculateMerkleRoot(newTxs)
+        let txs = [coinbaseTx] + mempool
+        let merkleRoot = calculateMerkleRoot(txs)
 
         let target = getNextWorkRequired(forHeight: tip - 1, newBlockTime: blockTime, params: consensusParams)
 
         var nonce = 0
-        var header: TxBlock
+        var block: TxBlock
         repeat {
-            header = .init(
+            block = .init(
                 version: 0x20000000,
                 previous: previousBlockHash,
                 merkleRoot: merkleRoot,
@@ -255,26 +394,16 @@ public actor BlockchainService: Sendable {
                 nonce: nonce
             )
             nonce += 1
-        } while DifficultyTarget(header.hash) > DifficultyTarget(compact: target)
+        } while DifficultyTarget(block.hash) > DifficultyTarget(compact: target)
 
-        let chainwork = blocks.last!.work + DifficultyTarget.getWork(target)
-        let blockFound = TxBlock(
-            context: .init(height: tip, chainwork: chainwork, status: .full),
-            version: header.version, previous: header.previous, merkleRoot: header.merkleRoot, time: header.time, target: header.target, nonce: header.nonce,
-            txs: newTxs
-        )
-        blocks.append(blockFound)
-        tip += 1
-        mempool = .init()
-        Task {
-            await withDiscardingTaskGroup {
-                for channel in blockChannels {
-                    $0.addTask {
-                        await channel.send(blockFound)
-                    }
-                }
-            }
-        }
+        block.txs = txs
+
+        // Reset mempool
+        mempool = []
+        mempoolExclude = []
+        mempoolCoins = [:]
+
+        connectBlock(block)
     }
 
     public func getTx(_ id: TxID) -> BitcoinTx? {
@@ -355,12 +484,51 @@ public actor BlockchainService: Sendable {
         return new.toCompact()
     }
 
+    private func getBlockSubsidy(_ height: Int) -> SatoshiAmount {
+        let halvings = height / consensusParams.subsidyHalvingInterval
+        // Force block reward to zero when right shift is undefined.
+        if halvings >= 64 {
+            return 0
+        }
+
+        var subsidy = consensusParams.blockSubsidy
+        // Subsidy is cut in half every 210,000 blocks which will occur approximately every 4 years.
+        subsidy >>= halvings
+        return subsidy
+    }
+
     private func getMedianTimePast(for height: Int? = .none) -> Date {
-        let height = height ?? blocks.count - 1
+        let height = height ?? tip - 1
         precondition(height >= 0 && height < blocks.count)
         let start = max(height - 11, 0)
         let median = blocks.lazy.map(\.time)[start...height].sorted()
         precondition(median.startIndex == 0)
         return median[median.count / 2]
+    }
+
+    /// BIP68 - Untested - Entrypoint 1.
+    private func checkSequenceLocks(_ tx: BitcoinTx, verifyLockTimeSequence: Bool, coins: [TxOutpoint : UnspentOut], previousBlockMedianTimePast: Int) throws {
+        // CheckSequenceLocks() uses chainActive.Height()+1 to evaluate
+        // height based locks because when SequenceLocks() is called within
+        // ConnectBlock(), the height of the block *being*
+        // evaluated is what is used.
+        // Thus if we want to know if a transaction can be part of the
+        // *next* block, we need to use one more than chainActive.Height()
+        let nextBlockHeight = tip // chainTip + 1
+        var heights = [Int]()
+        // pcoinsTip contains the UTXO set for chainActive.Tip()
+        for txIn in tx.ins {
+            guard let coin = coins[txIn.outpoint] else {
+                preconditionFailure()
+            }
+            if coin.isMempool {
+                // Assume all mempool transaction confirm in the next block
+                heights.append(nextBlockHeight)
+            } else {
+                heights.append(coin.height)
+            }
+        }
+        let lockPair = tx.calculateSequenceLocks(verifyLockTimeSequence: verifyLockTimeSequence, previousHeights: &heights, blockHeight: nextBlockHeight)
+        try tx.evaluateSequenceLocks(blockHeight: nextBlockHeight, previousBlockMedianTimePast: previousBlockMedianTimePast, lockPair: lockPair)
     }
 }

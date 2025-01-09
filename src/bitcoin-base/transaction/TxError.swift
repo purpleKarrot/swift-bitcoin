@@ -1,7 +1,7 @@
 import Foundation
 
 /// An error while checking a bitcoin transaction.
-enum TxError: Error {
+public enum TxError: Error {
     case missingInputs,
          missingOutputs,
          oversized,

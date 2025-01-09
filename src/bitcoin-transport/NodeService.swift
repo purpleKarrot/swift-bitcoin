@@ -540,7 +540,7 @@ public actor NodeService: Sendable {
             throw Error.invalidPayload
         }
 
-        await blockchainService.processBlock(block)
+        try await blockchainService.processBlock(block)
 
         state.peers[id]?.inTransitBlocks -= 1
 
@@ -610,7 +610,7 @@ public actor NodeService: Sendable {
 
         var block = compactBlockMessage.header
         block.txs = compactBlockMessage.txs.map { $0.tx }
-        await blockchainService.processBlock(block)
+        try await blockchainService.processBlock(block)
     }
 
     static let minCompactBlocksVersion = 2

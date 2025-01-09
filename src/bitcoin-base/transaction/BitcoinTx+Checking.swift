@@ -3,41 +3,36 @@ import Foundation
 /// Transaction checking.
 extension BitcoinTx {
 
-    // MARK: - Computed Properties
-
-    private var valueOut: SatoshiAmount {
-        outs.reduce(0) { $0 + $1.value }
-    }
-    
     // MARK: - Instance Methods
 
     /// This function is called when validating a transaction and it's consensus critical.
-    public func check() throws {
+    /// - Parameter weightLimit:usually `BitcoinBlockchain.ConsensusParams.maxBlockWeight` which equals 4,000,000.
+    package func check(weightLimit: Int = Self.defaultWeightLimit) throws(TxError) {
         // Basic checks that don't depend on any context
         guard !ins.isEmpty else {
-            throw TxError.missingInputs
+            throw .missingInputs
         }
         guard !outs.isEmpty else {
-            throw TxError.missingOutputs
+            throw .missingOutputs
         }
 
         // Size limits (this doesn't take the witness into account, as that hasn't been checked for malleability)
-        guard weight <= Self.maxBlockWeight else {
-            throw TxError.oversized
+        guard weight <= weightLimit else {
+            throw .oversized
         }
 
         // Check for negative or overflow output values (see CVE-2010-5139)
         var valueOut: SatoshiAmount = 0
         for out in outs {
             guard out.value >= 0 else {
-                throw TxError.negativeOutput
+                throw .negativeOutput
             }
-            guard out.value <= Self.maxMoney else {
-                throw TxError.outputTooLarge
+            guard out.value <= BitcoinTx.maxMoney else {
+                throw .outputTooLarge
             }
             valueOut += out.value
-            guard valueOut >= 0 && valueOut <= Self.maxMoney else {
-                throw TxError.totalOutputsTooLarge
+            guard valueOut >= 0 && valueOut <= BitcoinTx.maxMoney else {
+                throw .totalOutputsTooLarge
             }
         }
 
@@ -51,69 +46,29 @@ extension BitcoinTx {
             outpoints.insert(txIn.outpoint)
         }
         guard ins.count == outpoints.count else {
-            throw TxError.duplicateInput
+            throw .duplicateInput
         }
 
         if isCoinbase && (ins[0].script.size < 2 || ins[0].script.size > 100) {
-            throw TxError.coinbaseLengthOutOfRange
+            throw .coinbaseLengthOutOfRange
         }
         if !isCoinbase {
             for txIn in ins {
                 if txIn.outpoint == TxOutpoint.coinbase {
-                    throw TxError.missingOutpoint
+                    throw .missingOutpoint
                 }
             }
         }
     }
 
-    /// This function is called when validating a transaction and it's consensus critical. Needs to be called after ``check()``
-    public func checkIns(coins: [TxOutpoint : UnspentOut], spendHeight: Int) throws {
-        // are the actual inputs available?
-        if !isCoinbase {
-            for outpoint in ins.map(\.outpoint) {
-                guard coins[outpoint] != .none else {
-                    throw TxError.inputMissingOrSpent
-                }
-            }
-        }
-
-        var valueIn = SatoshiAmount(0)
-        for txIn in ins {
-            let outpoint = txIn.outpoint
-            guard let coin = coins[outpoint] else {
-                preconditionFailure()
-            }
-            if coin.isCoinbase && spendHeight - coin.height < Self.coinbaseMaturity {
-                throw TxError.prematureCoinbaseSpend
-            }
-            valueIn += coin.txOut.value
-            guard coin.txOut.value >= 0 && coin.txOut.value <= Self.maxMoney,
-                  valueIn >= 0 && valueIn <= Self.maxMoney
-            else {
-                throw TxError.inputValueOutOfRange
-            }
-        }
-
-        // This is guaranteed by calling Tx.check() before this function.
-        precondition(valueOut >= 0 && valueOut <= Self.maxMoney)
-
-        guard valueIn >= valueOut else {
-            throw TxError.inputsValueBelowOutput
-        }
-
-        let fee = valueIn - valueOut
-        guard fee >= 0 && fee <= Self.maxMoney else {
-            throw TxError.feeOutOfRange
-        }
-    }
-
-    public func isFinal(blockHeight: Int?, blockTime: Int?) -> Bool {
-        precondition((blockHeight == .none && blockTime != .none) || (blockHeight != .none && blockTime == .none))
+    public func isFinal(blockHeight: Int, blockTime: Int) -> Bool {
         if locktime == .disabled { return true }
 
-        if let blockHeight, let txBlockHeight = locktime.blockHeight, txBlockHeight < blockHeight {
+        if let txBlockHeight = locktime.blockHeight, txBlockHeight < blockHeight {
             return true
-        } else if let blockTime, let txBlockTime = locktime.secondsSince1970, txBlockTime < blockTime {
+        }
+
+        if let txBlockTime = locktime.secondsSince1970, txBlockTime < blockTime {
             return true
         }
 
@@ -128,32 +83,6 @@ extension BitcoinTx {
         return ins.allSatisfy { $0.sequence == .final }
     }
 
-    /// BIP68 - Untested - Entrypoint 1.
-    public func checkSequenceLocks(verifyLockTimeSequence: Bool, coins: [TxOutpoint : UnspentOut], chainTip: Int, previousBlockMedianTimePast: Int) throws {
-        // CheckSequenceLocks() uses chainActive.Height()+1 to evaluate
-        // height based locks because when SequenceLocks() is called within
-        // ConnectBlock(), the height of the block *being*
-        // evaluated is what is used.
-        // Thus if we want to know if a transaction can be part of the
-        // *next* block, we need to use one more than chainActive.Height()
-        let nextBlockHeight = chainTip + 1
-        var heights = [Int]()
-        // pcoinsTip contains the UTXO set for chainActive.Tip()
-        for txIn in ins {
-            guard let coin = coins[txIn.outpoint] else {
-                preconditionFailure()
-            }
-            if coin.height == 0x7FFFFFFF /* MEMPOOL_HEIGHT */ {
-                // Assume all mempool transaction confirm in the next block
-                heights.append(nextBlockHeight)
-            } else {
-                heights.append(coin.height)
-            }
-        }
-        let lockPair = calculateSequenceLocks(verifyLockTimeSequence: verifyLockTimeSequence, previousHeights: &heights, blockHeight: nextBlockHeight)
-        try evaluateSequenceLocks(blockHeight: nextBlockHeight, previousBlockMedianTimePast: previousBlockMedianTimePast, lockPair: lockPair)
-    }
-
     /// BIP68 - Untested. Entrypoint 2.
     public func sequenceLocks(verifyLockTimeSequence: Bool, previousHeights: inout [Int], blockHeight: Int, previousBlockMedianTimePast: Int) throws {
         try evaluateSequenceLocks(blockHeight: blockHeight, previousBlockMedianTimePast: previousBlockMedianTimePast, lockPair: calculateSequenceLocks(verifyLockTimeSequence: verifyLockTimeSequence, previousHeights: &previousHeights, blockHeight: blockHeight))
@@ -165,7 +94,7 @@ extension BitcoinTx {
     /// Also removes from the vector of input heights any entries which did not
     /// correspond to sequence locked inputs as they do not affect the calculation.
     /// Called from ``sequenceLocks()``.
-    func calculateSequenceLocks(verifyLockTimeSequence: Bool, previousHeights: inout [Int], blockHeight: Int) -> (Int, Int) {
+    package func calculateSequenceLocks(verifyLockTimeSequence: Bool, previousHeights: inout [Int], blockHeight: Int) -> (Int, Int) {
 
         precondition(previousHeights.count == ins.count);
 
@@ -224,9 +153,12 @@ extension BitcoinTx {
     }
 
     /// BIP68 - Untested. Called by ``BitcoinTx.checkSequenceLocks()`` and ``BitcoinTx.sequenceLocks()``.
-    func evaluateSequenceLocks(blockHeight: Int, previousBlockMedianTimePast: Int, lockPair: (Int, Int)) throws {
+    package func evaluateSequenceLocks(blockHeight: Int, previousBlockMedianTimePast: Int, lockPair: (Int, Int)) throws {
         if lockPair.0 >= blockHeight || lockPair.1 >= previousBlockMedianTimePast {
             throw TxError.futureLockTime
         }
     }
+
+    /// This is a duplicate of `BitcoinBlockchain.ConsensusParams.maxBlockWeight` which should equal 4,000,000.
+    package static let defaultWeightLimit = 4_000_000
 }
