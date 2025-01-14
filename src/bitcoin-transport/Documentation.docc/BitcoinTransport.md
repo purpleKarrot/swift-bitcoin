@@ -14,12 +14,12 @@ _BitcoinTransport_ handshake example:
 ```swift
 import BitcoinTransport
 
-let satoshi = NodeService(blockchainService: satoshiChain, feeFilterRate: 2)
+let satoshi = NodeService(blockchain: satoshiChain, feeFilterRate: 2)
 let halPeer = await satoshi.addPeer()
 satoshiOut = await satoshi.getChannel(for: halPeer).makeAsyncIterator()
 
 let halChain = BlockchainService()
-let hal = NodeService(blockchainService: halChain, feeFilterRate: 3)
+let hal = NodeService(blockchain: halChain, feeFilterRate: 3)
 let satoshiPeer = await hal.addPeer(incoming: false)
 halOut = await hal.getChannel(for: satoshiPeer).makeAsyncIterator()
 

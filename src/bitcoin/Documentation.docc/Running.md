@@ -23,6 +23,16 @@ To produce executables with `release` configuration use `swift build -c release`
 
 Now you can start a node with `.build/release/bcnode` or use the utility with `.build/release/bcutil`.
 
+### Overriding ports
+
+To run two nodes concurrently you will need to override some ports on the second instance.
+
+First run your main node as usual with `swift run bcnode`. You can start listening on the default port by `swift run bcutil start-p2p` on another terminal tab.
+
+For the second node use `swift run bcnode -p 9332` and `swift run bcutil -p 9332 status` to query it. To start listening on an alternative P2P port use `swift run bcutil -p 9332 start-p2p -q 9333`.
+
+To have the first node connect to the second node use `swift run bcutil connect -q 9333`. Or vice-versa to connect the second to the first: `swift run bcutil -p 9332 connect` – you'll need to disconnect using `swift run bcutil disconnect <CLIENT_LOCAL_PORT>` before trying a connection in the opposite direction.
+
 ## Run with docker
 
 ### Interactive container

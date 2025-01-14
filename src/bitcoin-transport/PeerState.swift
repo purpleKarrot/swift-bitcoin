@@ -58,10 +58,15 @@ public struct PeerState: Sendable {
 
     var inTransitBlocks = 0
 
-    // Status
+    // MARK: - Status
+
     public internal(set) var height = 0
     public internal(set) var lastPingNonce = UInt64?.none
     public private(set) var knownBlocks = [BlockID]()
+    public private(set) var knownTxs = [TxID]()
+
+    /// BIP152
+    var pendingBlockTxs = [BitcoinTx?]?.none
 
     var nextPingTask: Task<(), Never>?
     var checkPongTask: Task<(), Never>?

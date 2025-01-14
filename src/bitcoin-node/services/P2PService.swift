@@ -11,13 +11,13 @@ private let logger = Logger(label: "swift-bitcoin.p2p")
 
 actor P2PService: Service {
 
-    init(eventLoopGroup: EventLoopGroup, bitcoinNode: NodeService) {
+    init(eventLoopGroup: EventLoopGroup, node: NodeService) {
         self.eventLoopGroup = eventLoopGroup
-        self.bitcoinNode = bitcoinNode
+        self.node = node
     }
 
     let eventLoopGroup: EventLoopGroup
-    let bitcoinNode: NodeService
+    let node: NodeService
 
     // Status
     private(set) var running = false
@@ -54,7 +54,7 @@ actor P2PService: Service {
         guard serverChannel == nil else { return }
         self.host = host
         self.port = port
-        await bitcoinNode.setAddress(host, port)
+        await node.setAddress(host, port)
         await listenRequests.send(()) // Signal to start listening
     }
 
@@ -66,7 +66,7 @@ actor P2PService: Service {
         port = .none
         sessionConnections = 0
         activeConnections = 0
-        await bitcoinNode.resetAddress()
+        await node.resetAddress()
     }
 
     private func serviceUp() {
@@ -131,11 +131,11 @@ actor P2PService: Service {
                         do {
                             try await connectionChannel.executeThenClose { inbound, outbound in
 
-                                let peerID = await self.bitcoinNode.addPeer(host: remoteHost, port: remotePort)
+                                let peerID = await self.node.addPeer(host: remoteHost, port: remotePort)
 
                                 try await withThrowingDiscardingTaskGroup { group in
                                     group.addTask {
-                                        for await message in await self.bitcoinNode.getChannel(for: peerID).cancelOnGracefulShutdown() {
+                                        for await message in await self.node.getChannel(for: peerID).cancelOnGracefulShutdown() {
                                             try await outbound.write(message)
                                         }
                                         try? await connectionChannel.channel.close()
@@ -143,17 +143,17 @@ actor P2PService: Service {
                                     group.addTask {
                                         for try await message in inbound.cancelOnGracefulShutdown() {
                                             do {
-                                                try await self.bitcoinNode.processMessage(message, from: peerID)
+                                                try await self.node.processMessage(message, from: peerID)
                                             } catch is NodeService.Error {
                                                 try await connectionChannel.channel.close()
                                             }
-                                            while let message = await self.bitcoinNode.popMessage(peerID) {
+                                            while let message = await self.node.popMessage(peerID) {
                                                 try await outbound.write(message)
                                             }
                                         }
                                         // Disconnected
                                         logger.info("P2P server disconnected from peer @ \(connectionChannel.channel.remoteAddress?.description ?? "").")
-                                        await self.bitcoinNode.removePeer(peerID) // stop sibbling tasks
+                                        await self.node.removePeer(peerID) // stop sibbling tasks
                                     }
                                 }
                             }

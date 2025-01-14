@@ -20,7 +20,7 @@ final class BlockSyncTests {
     init() async throws {
         let aliceChain = BlockchainService()
         self.aliceChain = aliceChain
-        let alice = NodeService(blockchainService: aliceChain, config: .init(maxInTransitBlocks: 2, feeFilterRate: 3))
+        let alice = NodeService(blockchain: aliceChain, config: .init(maxInTransitBlocks: 2, feeFilterRate: 3))
         self.alice = alice
         let peerB = await alice.addPeer(incoming: false)
         self.peerB = peerB
@@ -33,7 +33,7 @@ final class BlockSyncTests {
         await bobChain.generateTo(pubkey)
 
         self.bobChain = bobChain
-        let bob = NodeService(blockchainService: bobChain, config: .init(maxInTransitBlocks: 2, feeFilterRate: 3))
+        let bob = NodeService(blockchain: bobChain, config: .init(maxInTransitBlocks: 2, feeFilterRate: 3))
         self.bob = bob
         let peerA = await bob.addPeer()
         self.peerA = peerA
@@ -359,8 +359,11 @@ final class BlockSyncTests {
         let alicePeers: [UUID: PeerState] = [
             peerB: peerBState
         ]
-        let alice = NodeService(blockchainService: aliceChain, config: .init(maxInTransitBlocks: 2, feeFilterRate: 3),
-                                state: .init(feeFilterRate: 3, awaitingHeadersFrom: .none, awaitingHeadersSince: .none, peers: alicePeers))
+        let alice = NodeService(
+            blockchain: aliceChain,
+            config: .init(maxInTransitBlocks: 2, feeFilterRate: 3),
+            state: .init(feeFilterRate: 3, peers: alicePeers)
+        )
         // var bobToAlice = await alice.getChannel(for: peerB).makeAsyncIterator()
         await #expect(alice.state.peers[peerB]!.handshakeComplete)
 
@@ -375,8 +378,8 @@ final class BlockSyncTests {
         let bobPeers: [UUID: PeerState] = [
             peerA: PeerState(address: IPv6Address.unspecified, port: 0, incoming: true)
         ]
-        let bob = NodeService(blockchainService: bobChain, config: .init(feeFilterRate: 2),
-                              state: .init(feeFilterRate: 2, awaitingHeadersFrom: .none, awaitingHeadersSince: .none, peers: bobPeers))
+        let bob = NodeService(blockchain: bobChain, config: .init(feeFilterRate: 2),
+                              state: .init(feeFilterRate: 2, peers: bobPeers))
         // var aliceToBob = await bob.getChannel(for: peerA).makeAsyncIterator()
 
         await alice.removePeer(peerB)

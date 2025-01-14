@@ -6,11 +6,11 @@ import BitcoinTransport
 /// Submits a new (raw) transaction to the mempool. The transaction needs to be both valid and signed for it to be accepted.
 public struct SendTransactionCommand: Sendable {
 
-    public init(bitcoinNode: NodeService) {
-        self.bitcoinNode = bitcoinNode
+    public init(node: NodeService) {
+        self.node = node
     }
 
-    let bitcoinNode: NodeService
+    let node: NodeService
 
     /// Request must contain single transaction (string) parameter.
     public func run(_ request: JSONRequest) async throws {
@@ -24,7 +24,7 @@ public struct SendTransactionCommand: Sendable {
             throw RPCError(.invalidParams("transaction"), description: "Transaction hex encoding or content invalid.")
         }
         do {
-            try await bitcoinNode.addTx(tx)
+            try await node.addTx(tx)
         } catch {
             throw RPCError(.invalidParams("transaction"), description: "Transaction was not accepted into the mempool.")
         }

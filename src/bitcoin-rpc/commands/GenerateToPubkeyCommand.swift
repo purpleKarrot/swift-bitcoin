@@ -6,11 +6,11 @@ import BitcoinBlockchain
 /// Generates blocks with the coinbase output spending to the provided public key.
 public struct GenerateToPubkeyCommand: Sendable {
 
-    public init(blockchainService: BlockchainService) {
-        self.blockchainService = blockchainService
+    public init(blockchain: BlockchainService) {
+        self.blockchain = blockchain
     }
 
-    let blockchainService: BlockchainService
+    let blockchain: BlockchainService
 
     /// Request must contain single public key ( hex string) parameter.
     public func run(_ request: JSONRequest) async throws -> JSONResponse {
@@ -24,8 +24,8 @@ public struct GenerateToPubkeyCommand: Sendable {
             throw RPCError(.invalidParams("pubkey"), description: "Pubkey hex encoding or content invalid.")
         }
 
-        await blockchainService.generateTo(pubkey)
-        let result = await blockchainService.blocks.last!.idHex
+        await blockchain.generateTo(pubkey)
+        let result = await blockchain.blocks.last!.idHex
 
         return .init(id: request.id, result: JSONObject.string(result))
     }

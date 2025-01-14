@@ -11,17 +11,17 @@ public struct GetMempoolCommand: Sendable {
         let txs: [String]
     }
 
-    public init(blockchainService: BlockchainService) {
-        self.blockchainService = blockchainService
+    public init(blockchain: BlockchainService) {
+        self.blockchain = blockchain
     }
 
-    let blockchainService: BlockchainService
+    let blockchain: BlockchainService
 
     public func run(_ request: JSONRequest) async -> JSONResponse {
 
         precondition(request.method == Self.method)
 
-        let mempool = await blockchainService.mempool
+        let mempool = await blockchain.mempool
         let result = Output(
             size: mempool.count,
             txs: mempool.map(\.id.hex)
