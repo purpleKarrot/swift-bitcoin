@@ -30,7 +30,7 @@ struct BlockTests {
         // Short transaction ID
         // TODO: The following value is taken from the function's output so nothing is being verified until replaced with a known-to-be valid ID.
         let expectedShortTxID = 0x00005b073a0c72eb
-        #expect(genesisBlock.makeShortTxID(for: 0, nonce: 0) == expectedShortTxID)
+        #expect(genesisBlock.makeShortTxIDs(nonce: 0)[0] == expectedShortTxID)
     }
 
     /// Tests one empty block right after the genesis block at height 1. Includes checks for the coinbase transaction.

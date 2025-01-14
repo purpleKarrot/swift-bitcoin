@@ -23,7 +23,7 @@ final class NodeServiceTests {
         await satoshiChain.generateTo(pubkey)
 
         self.satoshiChain = satoshiChain
-        let satoshi = NodeService(blockchainService: satoshiChain, config: .init(feeFilterRate: 2))
+        let satoshi = NodeService(blockchain: satoshiChain, config: .init(feeFilterRate: 2))
         self.satoshi = satoshi
         let halPeer = await satoshi.addPeer()
         self.halPeer = halPeer
@@ -31,7 +31,7 @@ final class NodeServiceTests {
 
         let halChain = BlockchainService()
         self.halChain = halChain
-        let hal = NodeService(blockchainService: halChain, config: .init(feeFilterRate: 2))
+        let hal = NodeService(blockchain: halChain, config: .init(feeFilterRate: 2))
         self.hal = hal
         let satoshiPeer = await hal.addPeer(incoming: false)
         self.satoshiPeer = satoshiPeer

@@ -10,15 +10,15 @@ import Logging
 
 private let logger = Logger(label: "swift-bitcoin.p2p-client")
 
-actor P2PClientService: Service {
+actor P2PClient: Service {
 
-    init(eventLoopGroup: EventLoopGroup, bitcoinNode: NodeService) {
+    init(eventLoopGroup: EventLoopGroup, node: NodeService) {
         self.eventLoopGroup = eventLoopGroup
-        self.bitcoinNode = bitcoinNode
+        self.node = node
     }
 
     let eventLoopGroup: EventLoopGroup
-    let bitcoinNode: NodeService
+    let node: NodeService
 
     // Status
     private(set) var running = false
@@ -32,7 +32,7 @@ actor P2PClientService: Service {
 
     private var clientChannel: NIOAsyncChannel<BitcoinMessage, BitcoinMessage>?
 
-    var status: P2PClientServiceStatus {
+    var status: P2PClientStatus {
         .init(running: running, connected: connected, remoteHost: remoteHost, remotePort: remotePort, localPort: localPort, overallConnections: overallConnections)
     }
 
@@ -86,18 +86,18 @@ actor P2PClientService: Service {
         logger.info("P2P client @\(localPort ?? -1) connected to peer @\(remoteHost):\(remotePort) ( …")
 
         try await clientChannel.executeThenClose { @Sendable inbound, outbound in
-            let peerID = await bitcoinNode.addPeer(host: remoteHost, port: remotePort, incoming: false)
+            let peerID = await node.addPeer(host: remoteHost, port: remotePort, incoming: false)
 
             try await withThrowingDiscardingTaskGroup { group in
                 group.addTask {
-                    await self.bitcoinNode.connect(peerID)
-                    while let message = await self.bitcoinNode.popMessage(peerID) {
+                    await self.node.connect(peerID)
+                    while let message = await self.node.popMessage(peerID) {
                         try await outbound.write(message)
                     }
                     logger.info("Connected \(peerID)")
                 }
                 group.addTask {
-                    for await message in await self.bitcoinNode.getChannel(for: peerID).cancelOnGracefulShutdown() {
+                    for await message in await self.node.getChannel(for: peerID).cancelOnGracefulShutdown() {
                         try await outbound.write(message)
                     }
                     try? await clientChannel.channel.close()
@@ -105,17 +105,17 @@ actor P2PClientService: Service {
                 group.addTask {
                     for try await message in inbound.cancelOnGracefulShutdown() {
                         do {
-                            try await self.bitcoinNode.processMessage(message, from: peerID)
+                            try await self.node.processMessage(message, from: peerID)
                         } catch let error as NodeService.Error {
                             logger.error("An error has occurred while processing message:\n\(error)")
                             try await clientChannel.channel.close()
                         }
-                        while let message = await self.bitcoinNode.popMessage(peerID) {
+                        while let message = await self.node.popMessage(peerID) {
                             try await outbound.write(message)
                         }
                     }
                     // Channel was closed
-                    await self.bitcoinNode.removePeer(peerID) // stop sibbling tasks
+                    await self.node.removePeer(peerID) // stop sibbling tasks
                 }
             }
         }

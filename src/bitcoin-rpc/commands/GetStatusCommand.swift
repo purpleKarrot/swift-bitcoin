@@ -6,7 +6,7 @@ import BitcoinBlockchain
 /// Status of the RPC and Peer-to-Peer services.
 public struct GetStatusCommand: Sendable {
 
-    public init(rpcStatus: RPCServiceStatus, p2pStatus: P2PServiceStatus, p2pClientStatus: [P2PClientServiceStatus]) {
+    public init(rpcStatus: RPCServiceStatus, p2pStatus: P2PServiceStatus, p2pClientStatus: [P2PClientStatus]) {
         self.rpcStatus = rpcStatus
         self.p2pStatus = p2pStatus
         self.p2pClientStatus = p2pClientStatus
@@ -14,7 +14,7 @@ public struct GetStatusCommand: Sendable {
 
     let rpcStatus: RPCServiceStatus
     let p2pStatus: P2PServiceStatus
-    let p2pClientStatus: [P2PClientServiceStatus]
+    let p2pClientStatus: [P2PClientStatus]
 
     public func run(_ request: JSONRequest) async -> JSONResponse {
 

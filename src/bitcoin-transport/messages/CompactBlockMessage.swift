@@ -7,7 +7,8 @@ import BitcoinBlockchain
 ///
 public struct CompactBlockMessage: Equatable {
 
-    public init(header: TxBlock, nonce: UInt64, txIDs: [Int], txs: [PrefilledTx]) {
+    public init(header: TxBlock, nonce: UInt64, txIDs: [UInt64], txs: [PrefilledTx]) {
+        precondition(header.txs.isEmpty)
         self.header = header
         self.nonce = nonce
         self.txIDs = txIDs
@@ -30,7 +31,7 @@ public struct CompactBlockMessage: Equatable {
     ///
     /// `shortids_length`: The number of short transaction IDs in shortids (i.e. `block tx count - prefilledtxn_length`)
     ///
-    public let txIDs: [Int]
+    public let txIDs: [UInt64]
 
     /// Used to provide the coinbase transaction and a select few which we expect a peer may be missing.
     ///
@@ -45,7 +46,7 @@ extension CompactBlockMessage {
         guard data.count >= 1 else { return nil }
         var data = data
 
-        guard let header = TxBlock(data) else { return nil }
+        guard let header = TxBlock(headerData: data) else { return nil }
         self.header = header
         data = data.dropFirst(TxBlock.baseSize) // Data does not include the empty transaction array
 
@@ -58,13 +59,13 @@ extension CompactBlockMessage {
 
         guard let txIDCount = data.varInt else { return nil }
         data = data.dropFirst(txIDCount.varIntSize)
-        var txIDs = [Int]()
+        var txIDs = [UInt64]()
         for _ in 0 ..< txIDCount {
             guard data.count >= 6 else { return nil }
-            let identifier = (data + Data(count: 2)).withUnsafeBytes {
+            let identifier = (data.prefix(6) + Data(count: 2)).withUnsafeBytes {
                 $0.loadUnaligned(as: UInt64.self)
             }
-            txIDs.append(Int(identifier))
+            txIDs.append(identifier)
             data = data.dropFirst(6)
         }
         self.txIDs = txIDs
@@ -84,7 +85,7 @@ extension CompactBlockMessage {
 
     var data: Data {
         var ret = Data(count: size)
-        var offset = ret.addData(header.data)
+        var offset = ret.addData(header.headerData)
         offset = ret.addBytes(nonce, at: offset)
 
         offset = ret.addData(Data(varInt: UInt64(txIDs.count)), at: offset)
@@ -96,7 +97,7 @@ extension CompactBlockMessage {
             offset = ret.addData(data.prefix(6), at: offset)
         }
 
-        offset = ret.addData(Data(varInt: UInt64(txIDs.count)), at: offset)
+        offset = ret.addData(Data(varInt: UInt64(txs.count)), at: offset)
 
         var previousIndex = Int?.none
         for tx in txs {

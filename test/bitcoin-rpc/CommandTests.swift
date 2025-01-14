@@ -16,7 +16,7 @@ final class CommandTests {
         await satoshiChain.generateTo(pubkey)
 
         self.satoshiChain = satoshiChain
-        let satoshi = NodeService(blockchainService: satoshiChain, config: .init(feeFilterRate: 2))
+        let satoshi = NodeService(blockchain: satoshiChain, config: .init(feeFilterRate: 2))
         self.satoshi = satoshi
     }
 
@@ -32,7 +32,7 @@ final class CommandTests {
     @Test("Blockchain Info")
     func blockchainInfo() async throws {
         guard let satoshiChain else { preconditionFailure() }
-        let command = GetBlockchainInfoCommand(blockchainService: satoshiChain)
+        let command = GetBlockchainInfoCommand(blockchain: satoshiChain)
         let output = await command.run(.init(id: "", method: "get-blockchain-info", params: .none))
         let result = try #require(output.result)
         guard case .string(_) = result else {

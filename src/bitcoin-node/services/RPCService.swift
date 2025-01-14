@@ -16,23 +16,23 @@ private let logger = Logger(label: "swift-bitcoin.rpc")
 
 actor RPCService: Service {
 
-    init(host: String, port: Int, eventLoopGroup: EventLoopGroup, bitcoinNode: NodeService, blockchainService: BlockchainService, p2pService: P2PService, p2pClientServices: [P2PClientService]) {
+    init(host: String, port: Int, eventLoopGroup: EventLoopGroup, node: NodeService, blockchain: BlockchainService, p2pService: P2PService, p2pClients: [P2PClient]) {
         self.host = host
         self.port = port
         self.eventLoopGroup = eventLoopGroup
-        self.bitcoinNode = bitcoinNode
-        self.blockchainService = blockchainService
+        self.node = node
+        self.blockchain = blockchain
         self.p2pService = p2pService
-        self.p2pClientServices = p2pClientServices
+        self.p2pClients = p2pClients
     }
 
     let host: String
     let port: Int
     let eventLoopGroup: EventLoopGroup
-    let bitcoinNode: NodeService
-    let blockchainService: BlockchainService
+    let node: NodeService
+    let blockchain: BlockchainService
     let p2pService: P2PService
-    let p2pClientServices: [P2PClientService]
+    let p2pClients: [P2PClient]
 
     // Status and statistics
     private(set) var listening = false
@@ -133,34 +133,34 @@ actor RPCService: Service {
         case GetStatusCommand.method:
             try await rpcStatus(request, outbound: outbound)
         case GenerateToPubkeyCommand.method:
-            let command = GenerateToPubkeyCommand(blockchainService: blockchainService)
+            let command = GenerateToPubkeyCommand(blockchain: blockchain)
             do {
                 try await outbound.write(command.run(request))
             } catch let error as RPCError {
                 try await outbound.write(.init(id: request.id, error: error))
             }
         case GetBlockCommand.method:
-            let command = GetBlockCommand(blockchainService: blockchainService)
+            let command = GetBlockCommand(blockchain: blockchain)
             do {
                 try await outbound.write(command.run(request))
             } catch let error as RPCError {
                 try await outbound.write(.init(id: request.id, error: error))
             }
         case GetTransactionCommand.method:
-            let command = GetTransactionCommand(blockchainService: blockchainService)
+            let command = GetTransactionCommand(blockchain: blockchain)
             do {
                 try await outbound.write(command.run(request))
             } catch let error as RPCError {
                 try await outbound.write(.init(id: request.id, error: error))
             }
         case GetBlockchainInfoCommand.method:
-            let command = GetBlockchainInfoCommand(blockchainService: blockchainService)
+            let command = GetBlockchainInfoCommand(blockchain: blockchain)
             try await outbound.write(command.run(request))
         case GetMempoolCommand.method:
-            let command = GetMempoolCommand(blockchainService: blockchainService)
+            let command = GetMempoolCommand(blockchain: blockchain)
             try await outbound.write(command.run(request))
         case SendTransactionCommand.method:
-            let command = SendTransactionCommand(bitcoinNode: bitcoinNode)
+            let command = SendTransactionCommand(node: node)
             do {
                 try await command.run(request)
             } catch let error as RPCError {
@@ -176,14 +176,14 @@ actor RPCService: Service {
         let status = RPCServiceStatus(listening: listening, host: host, port: port, overallConnections: overallConnections, activeConnections: activeConnections)
 
         // Collect P2P Client Services' statuses in order
-        let p2pClientStatus = await withTaskGroup(of: (Int, P2PClientServiceStatus).self, returning: [P2PClientServiceStatus].self) { group in
-            for i in p2pClientServices.indices {
+        let p2pClientStatus = await withTaskGroup(of: (Int, P2PClientStatus).self, returning: [P2PClientStatus].self) { group in
+            for i in p2pClients.indices {
                 group.addTask {
-                    let status = await self.p2pClientServices[i].status
+                    let status = await self.p2pClients[i].status
                     return (i, status)
                 }
             }
-            var items = [(Int, P2PClientServiceStatus)]()
+            var items = [(Int, P2PClientStatus)]()
             for await var result in group {
                 result.1.index = result.0 // Set the index inside the struct
                 items.append(result)
@@ -227,20 +227,20 @@ actor RPCService: Service {
             return // or break?
         }
         // Attempt to find an inactive client.
-        var clientService = P2PClientService?.none
-        for service in p2pClientServices {
-            if await !service.connected {
-                clientService = service
+        var client = P2PClient?.none
+        for c in p2pClients {
+            if await !c.connected {
+                client = c
                 break
             }
         }
-        guard let clientService else {
+        guard let client else {
             try await outbound.write(.init(id: request.id, error: .init(.applicationError("Maximum P2P client instances reached."))))
             return
         }
 
         try await outbound.write(.init(id: request.id, result: .string("Connecting to peer @\(host):\(port)…") as JSONObject))
-        await clientService.connect(host: host, port: port)
+        await client.connect(host: host, port: port)
     }
 
     private func rpcDisconnect(_ request: JSONRequest, outbound: NIOAsyncChannelOutboundWriter<JSONResponse>) async throws {
@@ -248,18 +248,18 @@ actor RPCService: Service {
             try await outbound.write(.init(id: request.id, result: .string("Disconnecting from client @\(localPort)…") as RPCObject))
 
             // Attempt to find a non-running client.
-            var clientService = P2PClientService?.none
-            for service in p2pClientServices {
-                if await service.localPort == localPort {
-                    clientService = service
+            var client = P2PClient?.none
+            for c in p2pClients {
+                if await c.localPort == localPort {
+                    client = c
                 }
             }
-            guard let clientService else {
+            guard let client else {
                 try await outbound.write(.init(id: request.id, error: .init(.applicationError("No client connected @\(localPort)"))))
                 return
             }
 
-            try await clientService.disconnect()
+            try await client.disconnect()
         } else {
             try await outbound.write(.init(id: request.id, error: .init(.invalidParams("Port (integer) is required."))))
         }

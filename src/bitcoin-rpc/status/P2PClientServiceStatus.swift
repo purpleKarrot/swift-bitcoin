@@ -1,6 +1,6 @@
 import Foundation
 
-public struct P2PClientServiceStatus: JSONStringConvertible, Sendable {
+public struct P2PClientStatus: JSONStringConvertible, Sendable {
 
     public init(running: Bool, connected: Bool, remoteHost: String?, remotePort: Int?, localPort: Int?, overallConnections: Int) {
         self.running = running

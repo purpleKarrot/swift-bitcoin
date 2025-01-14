@@ -12,11 +12,11 @@ public struct GetBlockCommand: Sendable {
         let txs: [String]
     }
 
-    public init(blockchainService: BlockchainService) {
-        self.blockchainService = blockchainService
+    public init(blockchain: BlockchainService) {
+        self.blockchain = blockchain
     }
 
-    let blockchainService: BlockchainService
+    let blockchain: BlockchainService
 
     public func run(_ request: JSONRequest) async throws -> JSONResponse {
 
@@ -29,7 +29,7 @@ public struct GetBlockCommand: Sendable {
             throw RPCError(.invalidParams("blockID"), description: "BlockID hex encoding or length is invalid.")
         }
 
-        guard let block = await blockchainService.getBlock(blockID) else {
+        guard let block = await blockchain.getBlock(blockID) else {
             throw RPCError(.invalidParams("blockID"), description: "Block not found.")
         }
         let txs = block.txs.map { $0.id.hex }

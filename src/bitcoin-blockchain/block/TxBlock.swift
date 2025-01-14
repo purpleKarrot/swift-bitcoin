@@ -57,6 +57,14 @@ public struct TxBlock: Equatable, Sendable {
         id.hex
     }
 
+    /// Returns a copy of self without the transactions – i.e. header only.
+    public var header: Self {
+        var header = self
+        header.txs = []
+        header.context = .none
+        return header
+    }
+
     var work: DifficultyTarget { .getWork(target) }
 
     // MARK: - Instance Methods
@@ -102,7 +110,7 @@ package extension TxBlock {
     // MARK: - Initializers
 
     /// Initialize from serialized raw data.
-    init?(_ data: Data) {
+    init?(headerData data: Data) {
         // Check we at least have enough data for block header + empty transactions
         guard data.count >= Self.baseSize else {
             return nil
@@ -124,12 +132,18 @@ package extension TxBlock {
         nonce = Int(data.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) })
         data = data.dropFirst(MemoryLayout<UInt32>.size)
 
-        guard let txCount = data.varInt else {
-            self.txs = []
-            return
-        }
+        self.txs = []
+    }
 
-        guard txCount <= Int.max else { return nil }
+    init?(_ data: Data) {
+        var data = data
+        self.init(headerData: data)
+        data = data.dropFirst(Self.baseSize)
+
+        // Check we at least have enough data for block header + empty transactions
+        guard let txCount = data.varInt, txCount <= Int.max else {
+            return nil
+        }
 
         data = data.dropFirst(txCount.varIntSize)
         var txs = [BitcoinTx]()
@@ -177,28 +191,37 @@ package extension TxBlock {
 }
 
 /// BIP152: Short transaction identifier implementation. See [https://github.com/bitcoin/bips/blob/master/bip-0152.mediawiki#short-transaction-ids].
-extension TxBlock {
+package extension TxBlock {
 
-    /// Short transaction IDs are used to represent a transaction without sending a full 256-bit hash. They are calculated by:
-    ///   1. single-SHA256 hashing the block header with the nonce appended (in little-endian)
-    ///   2. Running SipHash-2-4 with the input being the transaction ID and the keys (k0/k1) set to the first two little-endian 64-bit integers from the above hash, respectively.
-    ///   3. Dropping the 2 most significant bytes from the SipHash output to make it 6 bytes.
-    public func makeShortTxID(for txIndex: Int, nonce: UInt64) -> Int {
-
+    func makeShortIDParams(nonce: UInt64) -> (first: UInt64, second: UInt64) {
         // single-SHA256 hashing the block header with the nonce appended (in little-endian)
         let headerData = headerData + Data(value: nonce)
         let headerHash = Data(SHA256.hash(data: headerData))
 
         // Running SipHash-2-4 with the input being the transaction ID and the keys (k0/k1) set to the first two little-endian 64-bit integers from the above hash, respectively.
-        let firstInt = headerHash.withUnsafeBytes { $0.load(as: UInt64.self) }
-        let secondInt = headerHash.dropFirst(MemoryLayout.size(ofValue: firstInt)).withUnsafeBytes { $0.load(as: UInt64.self) }
-        var sipHasher = SipHash(k0: firstInt, k1: secondInt)
+        let first = headerHash.withUnsafeBytes { $0.load(as: UInt64.self) }
+        let second = headerHash.dropFirst(MemoryLayout.size(ofValue: first)).withUnsafeBytes { $0.load(as: UInt64.self) }
+        return (first, second)
+    }
 
-        let txID = txs[txIndex].witnessID
-        txID.withUnsafeBytes { sipHasher.update(bufferPointer: $0) }
-        let sipHash = sipHasher.finalize().value
+    func makeShortTxIDs(nonce: UInt64) -> [UInt64] {
+        let (first, second) = makeShortIDParams(nonce: nonce)
+        return txs.map { tx in tx.makeShortTxID(nonce: nonce, first: first, second: second) }
+    }
+}
+
+package extension BitcoinTx {
+    /// Short transaction IDs are used to represent a transaction without sending a full 256-bit hash. They are calculated by:
+    ///   1. single-SHA256 hashing the block header with the nonce appended (in little-endian)
+    ///   2. Running SipHash-2-4 with the input being the transaction ID and the keys (k0/k1) set to the first two little-endian 64-bit integers from the above hash, respectively.
+    ///   3. Dropping the 2 most significant bytes from the SipHash output to make it 6 bytes.
+    func makeShortTxID(nonce: UInt64, first: UInt64, second: UInt64) -> UInt64 {
+        var hasher = SipHash(k0: first, k1: second)
+        let txID = witnessID
+        txID.withUnsafeBytes { hasher.update(bufferPointer: $0) }
+        let sipHash = hasher.finalize().value
 
         // Dropping the 2 most significant bytes from the SipHash output to make it 6 bytes.
-        return Int((sipHash << 16) >> 16)
+        return (sipHash << 16) >> 16
     }
 }

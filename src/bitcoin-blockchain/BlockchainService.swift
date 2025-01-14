@@ -23,6 +23,9 @@ public actor BlockchainService: Sendable {
     /// Subscriptions to new blocks.
     private var blockChannels = [AsyncChannel<TxBlock>]()
 
+    /// Subscriptions to new transactions.
+    private var txChannels = [AsyncChannel<BitcoinTx>]()
+
     public init(consensusParams: ConsensusParams = .regtest) {
         self.consensusParams = consensusParams
         let genesisBlock = TxBlock.makeGenesisBlock(consensusParams: consensusParams)
@@ -39,6 +42,13 @@ public actor BlockchainService: Sendable {
         return blocks[height]
     }
 
+    public func getHeader(_ id: BlockID) -> TxBlock? {
+        guard let index = blocks.firstIndex(where: { $0.id == id }) else {
+            return .none
+        }
+        return blocks[index]
+    }
+
     public func getBlock(_ id: BlockID) -> TxBlock? {
         guard let index = blocks.firstIndex(where: { $0.id == id }), index < tip else {
             return .none
@@ -51,6 +61,18 @@ public actor BlockchainService: Sendable {
         guard !mempool.contains(tx) else { return }
         guard checkTx(tx) else { return }
         mempool.append(tx)
+
+        // Notify other nodes of new tx
+        Task {
+            await withDiscardingTaskGroup {
+                for channel in txChannels {
+                    $0.addTask {
+                        await channel.send(tx)
+                    }
+                }
+            }
+        }
+
         // Remove coins
         mempoolExclude += tx.ins.map(\.outpoint)
         // Add coins
@@ -65,8 +87,16 @@ public actor BlockchainService: Sendable {
         return blockChannels.last!
     }
 
+    public func subscribeToTxs() -> AsyncChannel<BitcoinTx> {
+        txChannels.append(.init())
+        return txChannels.last!
+    }
+
     public func shutdown() {
         for channel in blockChannels {
+            channel.finish()
+        }
+        for channel in txChannels {
             channel.finish()
         }
     }
@@ -74,6 +104,11 @@ public actor BlockchainService: Sendable {
     public func unsubscribe(_ channel: AsyncChannel<TxBlock>) {
         channel.finish()
         blockChannels.removeAll(where: { $0 === channel })
+    }
+
+    public func unsubscribe(_ channel: AsyncChannel<BitcoinTx>) {
+        channel.finish()
+        txChannels.removeAll(where: { $0 === channel })
     }
 
     /// To create the block locator hashes, keep pushing hashes until you go back to the genesis block. After pushing 10 hashes back, the step backwards doubles every loop.
@@ -406,20 +441,66 @@ public actor BlockchainService: Sendable {
         connectBlock(block)
     }
 
-    public func getTx(_ id: TxID) -> BitcoinTx? {
-        for t in mempool {
-            if t.id == id {
-                return t
+    public func calculateMissingTxs(ids: [TxID]) -> [TxID] {
+        var newIDs = ids
+        for tx in mempool {
+            if ids.contains(tx.id) {
+                newIDs.removeAll { $0 == tx.id }
             }
         }
         for block in blocks {
-            for t in block.txs {
-                if t.id == id {
-                    return t
+            for tx in block.txs {
+                if ids.contains(tx.id) {
+                    newIDs.removeAll { $0 == tx.id }
                 }
             }
         }
-        return .none
+        return newIDs
+    }
+
+    public func calculateMissingBlocks(ids: [BlockID]) -> [BlockID] {
+        var newIDs = ids
+        for block in blocks {
+            if ids.contains(block.id) {
+                newIDs.removeAll { $0 == block.id }
+            }
+        }
+        return newIDs
+    }
+
+    /// Gets a transaction by ID looking into mempool and blocks.
+    public func getTx(_ id: TxID) -> BitcoinTx? {
+        getTxs([id]).first
+    }
+
+    /// Finds transactions in mempool and blocks which match any of the provided IDs.
+    public func getTxs(_ ids: [TxID]) -> [BitcoinTx] {
+        var ret = [BitcoinTx]()
+        for tx in mempool {
+            if ids.contains(tx.id) {
+                ret.append(tx)
+            }
+        }
+        for block in blocks {
+            for tx in block.txs {
+                if ids.contains(tx.id) {
+                    ret.append(tx)
+                }
+            }
+        }
+        return ret
+    }
+
+    /// Checks mempool for missing transactions.
+    public func findMempoolTxs(shortIDs: [UInt64], header: TxBlock, nonce: UInt64) -> [BitcoinTx?] {
+        let (first, second) = header.makeShortIDParams(nonce: nonce)
+        let mempoolShortIDs = mempool.map { tx in tx.makeShortTxID(nonce: nonce, first: first, second: second)}
+        return shortIDs.map { id in
+            guard let i = mempoolShortIDs.firstIndex(of: id) else {
+                return .none
+            }
+            return mempool[i]
+        }
     }
 
     private func getNextWorkRequired(forHeight heightLast: Int, newBlockTime: Date, params: ConsensusParams) -> Int {
