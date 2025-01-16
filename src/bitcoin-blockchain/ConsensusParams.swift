@@ -2,7 +2,7 @@ import Foundation
 import BitcoinBase
 
 public struct ConsensusParams: Sendable {
-    public init(powLimit: Data, powTargetTimespan: Int, powTargetSpacing: Int, powAllowMinDifficultyBlocks: Bool, powNoRetargeting: Bool, blockSubsidy: Int = 50 * 100_000_000, genesisBlockTime: Int, genesisBlockNonce: Int, genesisBlockTarget: Int) {
+    public init(powLimit: Data, powTargetTimespan: Int, powTargetSpacing: Int, powAllowMinDifficultyBlocks: Bool, powNoRetargeting: Bool, blockSubsidy: Int = 50 * 100_000_000, genesisBlockTime: Int, genesisBlockNonce: Int, genesisBlockTarget: Int, coinbaseMaturity: Int = Self.defaultCoinbaseMaturity) {
         self.powLimit = powLimit
         self.powTargetTimespan = powTargetTimespan
         self.powTargetSpacing = powTargetSpacing
@@ -12,6 +12,7 @@ public struct ConsensusParams: Sendable {
         self.genesisBlockTime = genesisBlockTime
         self.genesisBlockNonce = genesisBlockNonce
         self.genesisBlockTarget = genesisBlockTarget
+        self.coinbaseMaturity = coinbaseMaturity
     }
 
     public let powLimit: Data
@@ -26,6 +27,9 @@ public struct ConsensusParams: Sendable {
 
     /// The initial block subsidy which defaults to 5 billion satoshis or 50 bitcoins.
     public var blockSubsidy = SatoshiAmount(5_000_000_000)
+
+    /// The number of blocks needed to be mined until a coinbase output may be spent. Defaults to 100.
+    public let coinbaseMaturity: Int
 
     ///
     public let subsidyHalvingInterval = 150
@@ -58,6 +62,18 @@ public struct ConsensusParams: Sendable {
         genesisBlockTarget: 0x207fffff
     )
 
+    package static let swiftTesting = Self(
+        powLimit: Data([0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]),
+        powTargetTimespan: 14 * 24 * 60 * 60, // two weeks
+        powTargetSpacing: 10 * 60,
+        powAllowMinDifficultyBlocks: true,
+        powNoRetargeting: true,
+        genesisBlockTime: 1296688602,
+        genesisBlockNonce: 2,
+        genesisBlockTarget: 0x207fffff,
+        coinbaseMaturity: 1
+    )
+
     // MARK: - Flags from `consensus.h` in Bitcoin Core.
 
     /// The maximum allowed size for a serialized block, in bytes (only for buffer size limits)
@@ -71,7 +87,7 @@ public struct ConsensusParams: Sendable {
     private static let maxBlockSigopsCost = 80_000
 
     /// Coinbase transaction outputs can only be spent after this number of new blocks (network rule)
-    public static let coinbaseMaturity = 100
+    public static let defaultCoinbaseMaturity = 100
 
     private static let witnessScaleFactor = 4
 

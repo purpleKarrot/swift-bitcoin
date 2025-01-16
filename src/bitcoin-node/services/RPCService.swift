@@ -160,7 +160,7 @@ actor RPCService: Service {
             let command = GetMempoolCommand(blockchain: blockchain)
             try await outbound.write(command.run(request))
         case SendTransactionCommand.method:
-            let command = SendTransactionCommand(node: node)
+            let command = SendTransactionCommand(blockchain: blockchain)
             do {
                 try await command.run(request)
             } catch let error as RPCError {

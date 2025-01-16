@@ -9,7 +9,7 @@ public actor BlockchainService: Sendable {
         case unsupportedBlockVersion, orphanHeader, insuficientProofOfWork, headerTooOld, headerTooNew
     }
 
-    let consensusParams: ConsensusParams
+    let params: ConsensusParams
 
     public private(set) var blocks = [TxBlock]()
     public private(set) var tip = 0
@@ -26,9 +26,9 @@ public actor BlockchainService: Sendable {
     /// Subscriptions to new transactions.
     private var txChannels = [AsyncChannel<BitcoinTx>]()
 
-    public init(consensusParams: ConsensusParams = .regtest) {
-        self.consensusParams = consensusParams
-        let genesisBlock = TxBlock.makeGenesisBlock(consensusParams: consensusParams)
+    public init(params: ConsensusParams = .regtest) {
+        self.params = params
+        let genesisBlock = TxBlock.makeGenesisBlock(params: params)
         blocks.append(genesisBlock)
         tip += 1
     }
@@ -37,6 +37,10 @@ public actor BlockchainService: Sendable {
         blocks[0]
     }
 
+    public var synchronized: Bool {
+        tip == blocks.count
+    }
+    
     public func getBlock(_ height: Int) -> TxBlock {
         precondition(height < tip)
         return blocks[height]
@@ -177,7 +181,7 @@ public actor BlockchainService: Sendable {
             throw .headerTooNew
         }
 
-        let target = getNextWorkRequired(forHeight: blocks.endIndex.advanced(by: -1), newBlockTime: header.time, params: consensusParams)
+        let target = getNextWorkRequired(forHeight: blocks.endIndex.advanced(by: -1), newBlockTime: header.time, params: params)
         guard DifficultyTarget(compact: header.target) <= DifficultyTarget(compact: target), DifficultyTarget(header.hash) <= DifficultyTarget(compact: header.target) else {
             throw .insuficientProofOfWork
         }
@@ -187,6 +191,9 @@ public actor BlockchainService: Sendable {
 
     public func processHeaders(_ headers: [TxBlock]) throws(Error) {
         for var header in headers {
+            guard header != blocks.last!.header else {
+                continue
+            }
             try checkHeader(&header)
             blocks.append(header)
         }
@@ -229,7 +236,7 @@ public actor BlockchainService: Sendable {
                 guard let coin = coins[outpoint] ?? auxCoins[outpoint], !exclude.contains(outpoint) else {
                     throw .inputMissingOrSpent
                 }
-                guard !coin.isCoinbase || tip - coin.height >= ConsensusParams.coinbaseMaturity else {
+                guard !coin.isCoinbase || tip - coin.height >= params.coinbaseMaturity else {
                     throw .prematureCoinbaseSpend
                 }
                 valueInAcc += coin.txOut.value
@@ -409,13 +416,13 @@ public actor BlockchainService: Sendable {
         }
 
         let witnessMerkleRoot = calculateWitnessMerkleRoot(mempool)
-        let coinbaseTx = BitcoinTx.makeCoinbaseTx(blockHeight: tip, pubkeyHash: pubkeyHash, witnessMerkleRoot: witnessMerkleRoot, blockSubsidy: consensusParams.blockSubsidy)
+        let coinbaseTx = BitcoinTx.makeCoinbaseTx(blockHeight: tip, pubkeyHash: pubkeyHash, witnessMerkleRoot: witnessMerkleRoot, blockSubsidy: params.blockSubsidy)
 
         let previousBlockHash = blocks.last!.id
         let txs = [coinbaseTx] + mempool
         let merkleRoot = calculateMerkleRoot(txs)
 
-        let target = getNextWorkRequired(forHeight: tip - 1, newBlockTime: blockTime, params: consensusParams)
+        let target = getNextWorkRequired(forHeight: tip - 1, newBlockTime: blockTime, params: params)
 
         var nonce = 0
         var block: TxBlock
@@ -566,13 +573,13 @@ public actor BlockchainService: Sendable {
     }
 
     private func getBlockSubsidy(_ height: Int) -> SatoshiAmount {
-        let halvings = height / consensusParams.subsidyHalvingInterval
+        let halvings = height / params.subsidyHalvingInterval
         // Force block reward to zero when right shift is undefined.
         if halvings >= 64 {
             return 0
         }
 
-        var subsidy = consensusParams.blockSubsidy
+        var subsidy = params.blockSubsidy
         // Subsidy is cut in half every 210,000 blocks which will occur approximately every 4 years.
         subsidy >>= halvings
         return subsidy
