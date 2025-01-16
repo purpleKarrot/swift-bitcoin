@@ -1,16 +1,16 @@
 import Foundation
 import JSONRPC
 import BitcoinBase
-import BitcoinTransport
+import BitcoinBlockchain
 
 /// Submits a new (raw) transaction to the mempool. The transaction needs to be both valid and signed for it to be accepted.
 public struct SendTransactionCommand: Sendable {
 
-    public init(node: NodeService) {
-        self.node = node
+    public init(blockchain: BlockchainService) {
+        self.blockchain = blockchain
     }
 
-    let node: NodeService
+    let blockchain: BlockchainService
 
     /// Request must contain single transaction (string) parameter.
     public func run(_ request: JSONRequest) async throws {
@@ -24,7 +24,7 @@ public struct SendTransactionCommand: Sendable {
             throw RPCError(.invalidParams("transaction"), description: "Transaction hex encoding or content invalid.")
         }
         do {
-            try await node.addTx(tx)
+            try await blockchain.addTx(tx)
         } catch {
             throw RPCError(.invalidParams("transaction"), description: "Transaction was not accepted into the mempool.")
         }

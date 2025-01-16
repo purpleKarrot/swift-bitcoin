@@ -68,7 +68,7 @@ let package = Package(
         // Tests
         .testTarget(name: "BitcoinTests", dependencies: ["Bitcoin"], path: "test/bitcoin"),
         .testTarget(name: "BitcoinRPCTests", dependencies: ["BitcoinRPC"], path: "test/bitcoin-rpc"),
-        .testTarget(name: "BitcoinTransportTests", dependencies: ["BitcoinTransport"], path: "test/bitcoin-transport"),
+        .testTarget(name: "BitcoinTransportTests", dependencies: ["BitcoinTransport", "BitcoinWallet"], path: "test/bitcoin-transport"),
         .testTarget(name: "BitcoinBlockchainTests", dependencies: ["BitcoinBlockchain"], path: "test/bitcoin-blockchain"),
         .testTarget(name: "BitcoinWalletTests", dependencies: ["BitcoinWallet"], path: "test/bitcoin-wallet"),
         .testTarget(name: "BitcoinCryptoTests", dependencies: ["BitcoinCrypto"], path: "test/bitcoin-crypto"),

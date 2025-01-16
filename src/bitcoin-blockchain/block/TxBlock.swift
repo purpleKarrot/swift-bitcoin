@@ -85,9 +85,9 @@ public struct TxBlock: Equatable, Sendable {
             lhs.txs == rhs.txs
     }
 
-    static func makeGenesisBlock(consensusParams: ConsensusParams) -> Self {
-        let genesisTx = BitcoinTx.makeGenesisTx(blockSubsidy: consensusParams.blockSubsidy)
-        let target = consensusParams.genesisBlockTarget
+    static func makeGenesisBlock(params: ConsensusParams) -> Self {
+        let genesisTx = BitcoinTx.makeGenesisTx(blockSubsidy: params.blockSubsidy)
+        let target = params.genesisBlockTarget
         let genesisBlock = TxBlock(
             context: .init(
                 height: 0,
@@ -97,9 +97,9 @@ public struct TxBlock: Equatable, Sendable {
             version: 1,
             previous: Data(count: 32),
             merkleRoot: genesisTx.id,
-            time: Date(timeIntervalSince1970: TimeInterval(consensusParams.genesisBlockTime)),
+            time: Date(timeIntervalSince1970: TimeInterval(params.genesisBlockTime)),
             target: target,
-            nonce: consensusParams.genesisBlockNonce,
+            nonce: params.genesisBlockNonce,
             txs: [genesisTx])
         return genesisBlock
     }

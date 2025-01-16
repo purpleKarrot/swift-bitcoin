@@ -2,7 +2,7 @@ import Foundation
 import LibSECP256k1
 
 /// Elliptic curve SECP256K1 secret key.
-public struct SecretKey: Equatable, CustomStringConvertible {
+public struct SecretKey: Equatable, Sendable, CustomStringConvertible {
 
     /// Uses global secp256k1 signing context.
     public init() {
@@ -22,6 +22,16 @@ public struct SecretKey: Equatable, CustomStringConvertible {
             return nil
         }
         self.data = data
+    }
+
+    public init?(_ data: [UInt8]) {
+        guard data.count == Self.keyLength else {
+            return nil
+        }
+        guard secp256k1_ec_seckey_verify(eccSigningContext, data) != 0 else {
+            return nil
+        }
+        self.data = Data(data)
     }
 
     public init?(_ hex: String) {

@@ -3,9 +3,6 @@ import AsyncAlgorithms
 import BitcoinBase
 import BitcoinBlockchain
 
-private let keepAliveSeconds = 60
-private let pongToleranceSeconds = 15
-
 /// Manages connection with state.peers, process incoming messages and sends responses.
 public actor NodeService: Sendable {
 
@@ -120,10 +117,6 @@ public actor NodeService: Sendable {
         }
     }
 
-    public func addTx(_ tx: BitcoinTx) async throws {
-        try await blockchain.addTx(tx)
-    }
-
     /// Send a ping to each of our state.peers. Calling this function will create child tasks.
     public func pingAll() async {
         await withDiscardingTaskGroup {
@@ -164,10 +157,11 @@ public actor NodeService: Sendable {
 
         guard !blockIDs.isEmpty else { return }
 
-        let getData = GetDataMessage(items:
-            blockIDs.map { .init(type: .witnessBlock, hash: $0) }
-        )
         state.peers[id]?.inTransitBlocks += blockIDs.count
+
+        let getData = GetDataMessage(
+            items: blockIDs.map { .init(type: state.ibdComplete ? .compactBlock : .witnessBlock, hash: $0) }
+        )
         enqueue(.getdata, payload: getData.data, to: id)
     }
 
@@ -243,9 +237,10 @@ public actor NodeService: Sendable {
         guard let peer = state.peers[id], peer.lastPingNonce == .none else { return }
 
         // Prepare pong check
+        let pongTolerance = config.pongTolerance
         state.peers[id]?.checkPongTask = Task.detached { [weak self] in
             do {
-                try await Task.sleep(nanoseconds: UInt64(pongToleranceSeconds) * 1_000_000_000)
+                try await Task.sleep(nanoseconds: UInt64(pongTolerance) * 1_000_000_000)
             } catch { return }
             guard !Task.isCancelled, let self else { return }
             if let peer = await self.state.peers[id], peer.lastPingNonce != .none {
@@ -273,12 +268,14 @@ public actor NodeService: Sendable {
 
         // Postpone the next ping
         state.peers[id]?.nextPingTask?.cancel()
-        state.peers[id]?.nextPingTask = Task.detached { [weak self] in
-            do {
-                try await Task.sleep(nanoseconds: UInt64(keepAliveSeconds) * 1_000_000_000)
-            } catch { return }
-            guard !Task.isCancelled, let self else { return }
-            await self.sendPingTo(id)
+        if let keepAliveFrequency = config.keepAliveFrequency {
+            state.peers[id]?.nextPingTask = Task.detached { [weak self] in
+                do {
+                    try await Task.sleep(nanoseconds: UInt64(keepAliveFrequency) * 1_000_000_000)
+                } catch { return }
+                guard !Task.isCancelled, let self else { return }
+                await self.sendPingTo(id)
+            }
         }
 
         guard let peer = state.peers[id] else { return }
@@ -323,7 +320,7 @@ public actor NodeService: Sendable {
             try await processGetBlockTxs(message, from: id)
         case .blocktxn:
             try await processBlockTxs(message, from: id)
-        case .getaddr, .addrv2, .notfound, .unknown:
+        case .getaddr, .addrv2, .notfound, .addr, .getblocks, .unknown:
             break
         }
     }
@@ -573,6 +570,10 @@ public actor NodeService: Sendable {
 
         state.peers[id]?.inTransitBlocks -= 1
 
+        if !state.ibdComplete, await blockchain.synchronized {
+            state.ibdComplete = true
+        }
+
         if state.peers[id]!.inTransitBlocks == 0 {
             await requestNextMissingBlocks(id)
         }
@@ -645,6 +646,7 @@ public actor NodeService: Sendable {
         guard let tx = BitcoinTx(message.payload) else {
             throw Error.invalidPayload
         }
+        state.peers[id]!.registerKnownTxs([tx.id])
         try await blockchain.addTx(tx)
     }
 

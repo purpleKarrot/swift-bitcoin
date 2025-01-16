@@ -63,6 +63,12 @@ _ = try #require(await satoshi.popMessage(halPeer))
 
 ### Essentials
 
+- ``NodeService``
+- ``NodeConfig``
+- ``NodeState``
+- ``PeerState``
+- ``BitcoinMessage``
+- ``MessageCommand``
 
 ## See Also
 

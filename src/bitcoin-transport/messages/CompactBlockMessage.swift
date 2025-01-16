@@ -74,7 +74,7 @@ extension CompactBlockMessage {
         data = data.dropFirst(txCount.varIntSize)
         var txs = [PrefilledTx]()
         var previousIndex = -1
-        for _ in 0 ..< txIDCount {
+        for _ in 0 ..< txCount {
             guard let tx = PrefilledTx(data, previousIndex: previousIndex) else { return nil }
             previousIndex = tx.index
             txs.append(tx)

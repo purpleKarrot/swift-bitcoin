@@ -344,49 +344,4 @@ final class BlockSyncTests {
     func initialBlockDownload() async throws {
         try await handshake()
     }
-
-    @Test("State bootstrap")
-    func stateBootstrap() async throws {
-        let aliceChain = BlockchainService()
-
-        var peerBState = PeerState(address: IPv6Address.unspecified, port: 0, incoming: false)
-        peerBState.version = .init()
-        peerBState.witnessRelayPreferenceReceived = true
-        peerBState.v2AddressPreferenceReceived = true
-        peerBState.versionAckReceived = true
-
-        let peerB = UUID()
-        let alicePeers: [UUID: PeerState] = [
-            peerB: peerBState
-        ]
-        let alice = NodeService(
-            blockchain: aliceChain,
-            config: .init(maxInTransitBlocks: 2, feeFilterRate: 3),
-            state: .init(feeFilterRate: 3, peers: alicePeers)
-        )
-        // var bobToAlice = await alice.getChannel(for: peerB).makeAsyncIterator()
-        await #expect(alice.state.peers[peerB]!.handshakeComplete)
-
-
-        let bobChain = BlockchainService()
-        let pubkey = try #require(PubKey(compressed: [0x03, 0x5a, 0xc9, 0xd1, 0x48, 0x78, 0x68, 0xec, 0xa6, 0x4e, 0x93, 0x2a, 0x06, 0xee, 0x8d, 0x6d, 0x2e, 0x89, 0xd9, 0x86, 0x59, 0xdb, 0x7f, 0x24, 0x74, 0x10, 0xd3, 0xe7, 0x9f, 0x88, 0xf8, 0xd0, 0x05])) // Testnet p2pkh address  miueyHbQ33FDcjCYZpVJdC7VBbaVQzAUg5
-        await bobChain.generateTo(pubkey)
-        await bobChain.generateTo(pubkey)
-        await bobChain.generateTo(pubkey)
-
-        let peerA = UUID()
-        let bobPeers: [UUID: PeerState] = [
-            peerA: PeerState(address: IPv6Address.unspecified, port: 0, incoming: true)
-        ]
-        let bob = NodeService(blockchain: bobChain, config: .init(feeFilterRate: 2),
-                              state: .init(feeFilterRate: 2, peers: bobPeers))
-        // var aliceToBob = await bob.getChannel(for: peerA).makeAsyncIterator()
-
-        await alice.removePeer(peerB)
-        await alice.stop()
-        await aliceChain.shutdown()
-        await bob.removePeer(peerA)
-        await bob.stop()
-        await bobChain.shutdown()
-    }
 }

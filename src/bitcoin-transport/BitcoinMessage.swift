@@ -2,6 +2,7 @@ import Foundation
 import BitcoinCrypto
 import BitcoinBlockchain
 
+/// Any message sent or received by nodes on the peer-to-peer network.
 public struct BitcoinMessage: Equatable, Sendable {
 
     public init(_ command: MessageCommand, payload: Data = .init(), network: NodeNetwork = .regtest) {
@@ -15,8 +16,12 @@ public struct BitcoinMessage: Equatable, Sendable {
         self.payload = payload
     }
 
+    /// The type of network on which the message is intended to be sent.
     public let network: NodeNetwork
+
+    /// The message's command which also determines the type of payload – if any – that the message will carry.
     public let command: MessageCommand
+
     private let payloadSize: Int
     public let checksum: UInt32
     public let payload: Data
