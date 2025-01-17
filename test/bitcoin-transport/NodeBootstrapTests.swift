@@ -16,31 +16,28 @@ struct NodeBootstrapTests {
 
     @Test("Ping Pong")
     func pingPong() async throws {
-        // Setup blockchains
-        let aliceChain = BlockchainService(params: .swiftTesting)
-        let bobChain = BlockchainService(params: .swiftTesting)
-
         // Alice's node
-        let peerB = UUID()
+        let peerB = PeerID()
         let alice = NodeService(
-            blockchain: aliceChain,
+            blockchain: .init(params: .swiftTesting),
             config: .init(keepAliveFrequency: .none),
             state: NodeState(ibdComplete: true, peers: [peerB : makePeerState()])
         )
         await #expect(alice.state.peers[peerB]!.handshakeComplete)
 
         // Bob's node
-        let peerA = UUID()
+        let peerA = PeerID()
         let bob = NodeService(
-            blockchain: bobChain,
+            blockchain: .init(params: .swiftTesting),
             config: .init(keepAliveFrequency: .none),
             state: NodeState(ibdComplete: true, peers: [peerA : makePeerState(true)])
         )
         await #expect(bob.state.peers[peerA]!.handshakeComplete)
 
         // Start nodes
-        await alice.start()
-        await bob.start()
+        Task { await alice.start() }
+        Task { await bob.start() }
+        await Task.yield()
 
         // Channels
         var aliceToBob = await alice.getChannel(for: peerB).makeAsyncIterator()
@@ -52,7 +49,6 @@ struct NodeBootstrapTests {
         }
         // Alice --(ping)->> …
         let messageAB0_ping = try #require(await aliceToBob.next())
-        await Task.yield()
         #expect(messageAB0_ping.command == .ping)
 
         let ping = try #require(PingMessage(messageAB0_ping.payload))
@@ -80,61 +76,40 @@ struct NodeBootstrapTests {
 
     @Test("Empty block relay")
     func emptyBlockRelay() async throws {
-        // Setup blockchains
-        let aliceChain = BlockchainService(params: .swiftTesting)
-        let bobChain = BlockchainService(params: .swiftTesting)
-        let carolChain = BlockchainService(params: .swiftTesting)
-
         // Alices's node
-        let peerB = UUID()
+        let peerB = PeerID()
         let alice = NodeService(
-            blockchain: aliceChain,
+            blockchain: .init(params: .swiftTesting),
             config: .init(keepAliveFrequency: .none),
             state: NodeState(ibdComplete: true, peers: [peerB : makePeerState()])
         )
 
         // Bob's node
-        let peerA = UUID()
-        let peerC = UUID() // Carol on Bob's node
-        let bob = NodeService(blockchain: bobChain, config: .init(keepAliveFrequency: .none), state: NodeState(ibdComplete: true, peers: [peerA : makePeerState(true), peerC : makePeerState()]))
+        let peerA = PeerID()
+        let peerC = PeerID() // Carol on Bob's node
+        let bob = NodeService(blockchain: .init(params: .swiftTesting), config: .init(keepAliveFrequency: .none), state: NodeState(ibdComplete: true, peers: [peerA : makePeerState(true), peerC : makePeerState()]))
 
         // Carol's node
-        let carolPeerB = UUID() // Bob on Carol's node
-        let carol = NodeService(blockchain: carolChain, config: .init(keepAliveFrequency: .none), state: NodeState(ibdComplete: true, peers: [carolPeerB : makePeerState(true)]))
+        let carolPeerB = PeerID() // Bob on Carol's node
+        let carol = NodeService(blockchain: .init(params: .swiftTesting), config: .init(keepAliveFrequency: .none), state: NodeState(ibdComplete: true, peers: [carolPeerB : makePeerState(true)]))
 
         // Start nodes
-        await alice.start()
-        await bob.start()
-        await carol.start()
+        Task { await alice.start() }
+        Task { await bob.start() }
+        Task { await carol.start() }
+        await Task.yield()
 
         // Peer channels
         var aliceToBob = await alice.getChannel(for: peerB).makeAsyncIterator()
-        // var bobToAlice = await bob.getChannel(for: peerA).makeAsyncIterator()
         var bobToCarol = await bob.getChannel(for: peerC).makeAsyncIterator()
-        // var carolToBob = await carol.getChannel(for: carolPeerB).makeAsyncIterator()
-
-        // Inventory channels
-        var aliceBlocks = try #require(await alice.blocks?.makeAsyncIterator())
-        var bobBlocks = try #require(await bob.blocks?.makeAsyncIterator())
-        var carolBlocks = try #require(await carol.blocks?.makeAsyncIterator())
 
         // Begin testing
-        Task {
-            await aliceChain.generateTo(pubkey)
-        }
-        let aliceBlock1 = try #require(await aliceBlocks.next())
-        await Task.yield()
+        await alice.blockchain.generateTo(pubkey)
 
-        let block1 = await aliceChain.blocks[1]
-        #expect(aliceBlock1 == block1)
-
-        Task {
-            await alice.handleBlock(aliceBlock1)
-        }
+        let block1 = await alice.blockchain.blocks[1]
 
         // Alice --(cmpctblock)->> …
         let messageAB0_cmpctblock = try #require(await aliceToBob.next())
-        await Task.yield()
         #expect(messageAB0_cmpctblock.command == .cmpctblock)
 
         let cmpctblock = try #require(CompactBlockMessage(messageAB0_cmpctblock.payload))
@@ -143,15 +118,11 @@ struct NodeBootstrapTests {
         // … --(cmpctblock)->> Bob
         try await bob.processMessage(messageAB0_cmpctblock, from: peerA)
 
-        let bobBlock1 = try #require(await bobBlocks.next())
-
-        Task {
-            await bob.handleBlock(bobBlock1)
-        }
+        // let bobBlock1 = try #require(await bobBlocks.next())
+        // Task { await bob.handleBlock(bobBlock1) }
 
         // Bob --(cmpctblock)->> …
         let messageBC0_cmpctblock = try #require(await bobToCarol.next())
-        await Task.yield()
         #expect(messageBC0_cmpctblock.command == .cmpctblock)
 
         let cmpctblock2 = try #require(CompactBlockMessage(messageBC0_cmpctblock.payload))
@@ -159,11 +130,6 @@ struct NodeBootstrapTests {
 
         // … --(cmpctblock)->> Carol
         try await carol.processMessage(messageBC0_cmpctblock, from: carolPeerB)
-
-        let carolBlock1 = try #require(await carolBlocks.next())
-
-        // No need to wrap this in a task since it will not produce the side effect of posting to the blocks channel
-        await carol.handleBlock(carolBlock1)
 
         let bobsBlocks = await bob.blockchain.blocks
         #expect(await alice.blockchain.blocks == bobsBlocks)
@@ -174,26 +140,39 @@ struct NodeBootstrapTests {
 
     @Test("Mempool transaction relay")
     func mempoolTxRelay() async throws {
-        // Setup blockchains
-        let aliceChain = BlockchainService(params: .swiftTesting)
-        let bobChain = BlockchainService(params: .swiftTesting)
-        let carolChain = BlockchainService(params: .swiftTesting)
+        // Alice's node
+        let peerB = PeerID()
+        let alice = NodeService(
+            blockchain: .init(params: .swiftTesting),
+            config: .init(keepAliveFrequency: .none),
+            state: NodeState(ibdComplete: true, peers: [peerB : makePeerState()])
+        )
 
-        await aliceChain.generateTo(pubkey)
-        let aliceTip  = await aliceChain.tip
+        // Bob's node
+        let peerA = PeerID()
+        let peerC = PeerID() // Carol on Bob's node
+        let bob = NodeService(blockchain: .init(params: .swiftTesting), config: .init(keepAliveFrequency: .none), state: NodeState(ibdComplete: true, peers: [peerA : makePeerState(true), peerC : makePeerState()]))
+
+        // Carol node
+        let carolPeerB = PeerID() // Bob on Carol's node
+        let carol = NodeService(blockchain: .init(params: .swiftTesting), config: .init(keepAliveFrequency: .none), state: NodeState(ibdComplete: true, peers: [carolPeerB : makePeerState(true)]))
+
+        // Setup blockchains
+        await alice.blockchain.generateTo(pubkey)
+        let aliceTip  = await alice.blockchain.tip
         #expect(aliceTip == 2)
 
         // let pubkey = try #require(PubKey(compressed: [0x03, 0x5a, 0xc9, 0xd1, 0x48, 0x78, 0x68, 0xec, 0xa6, 0x4e, 0x93, 0x2a, 0x06, 0xee, 0x8d, 0x6d, 0x2e, 0x89, 0xd9, 0x86, 0x59, 0xdb, 0x7f, 0x24, 0x74, 0x10, 0xd3, 0xe7, 0x9f, 0x88, 0xf8, 0xd0, 0x05])) // Testnet p2pkh address  miueyHbQ33FDcjCYZpVJdC7VBbaVQzAUg5
         for i in 1 ..< aliceTip {
-            try await bobChain.processBlock(await aliceChain.blocks[i])
-            try await carolChain.processBlock(await aliceChain.blocks[i])
+            try await bob.blockchain.processBlock(await alice.blockchain.blocks[i])
+            try await carol.blockchain.processBlock(await alice.blockchain.blocks[i])
         }
 
-        #expect(await bobChain.tip == aliceTip)
-        #expect(await carolChain.tip == aliceTip)
+        #expect(await bob.blockchain.tip == aliceTip)
+        #expect(await carol.blockchain.tip == aliceTip)
 
         // Grab block 1's coinbase transaction and output.
-        let coinbaseTx = await aliceChain.getBlock(1).txs[0]
+        let coinbaseTx = await alice.blockchain.getBlock(1).txs[0]
 
         var tx = BitcoinTx(
             ins: [.init(outpoint: coinbaseTx.outpoint(0))],
@@ -205,52 +184,21 @@ struct NodeBootstrapTests {
         signer.sign(txIn: 0, with: secretKey)
         tx = signer.tx
 
-        // Alice's node
-        let peerB = UUID()
-        let alice = NodeService(
-            blockchain: aliceChain,
-            config: .init(keepAliveFrequency: .none),
-            state: NodeState(ibdComplete: true, peers: [peerB : makePeerState()])
-        )
-
-        // Bob's node
-        let peerA = UUID()
-        let peerC = UUID() // Carol on Bob's node
-        let bob = NodeService(blockchain: bobChain, config: .init(keepAliveFrequency: .none), state: NodeState(ibdComplete: true, peers: [peerA : makePeerState(true), peerC : makePeerState()]))
-
-        // Carol node
-        let carolPeerB = UUID() // Bob on Carol's node
-        let carol = NodeService(blockchain: carolChain, config: .init(keepAliveFrequency: .none), state: NodeState(ibdComplete: true, peers: [carolPeerB : makePeerState(true)]))
-
         // Start nodes
-        await alice.start()
-        await bob.start()
-        await carol.start()
+        Task { await alice.start() }
+        Task { await bob.start() }
+        Task { await carol.start() }
+        await Task.yield()
 
         // Peer channels
         var aliceToBob = await alice.getChannel(for: peerB).makeAsyncIterator()
-        // var bobToAlice = await bob.getChannel(for: peerA).makeAsyncIterator()
         var bobToCarol = await bob.getChannel(for: peerC).makeAsyncIterator()
-        // var carolToBob = await carol.getChannel(for: carolPeerB).makeAsyncIterator()
-
-        // Inventory channels
-        var aliceTxs = try #require(await alice.txs?.makeAsyncIterator())
-        var bobTxs = try #require(await bob.txs?.makeAsyncIterator())
-        var carolTxs = try #require(await carol.txs?.makeAsyncIterator())
 
         // Begin testing
-        Task {
-            try await aliceChain.addTx(tx)
-        }
-        let aliceTx = try #require(await aliceTxs.next())
-        await Task.yield()
+        try await alice.blockchain.addTx(tx)
 
-        Task {
-            await alice.handleTx(aliceTx)
-        }
         // Alice --(inv)->> …
         let messageAB0_inv = try #require(await aliceToBob.next())
-        await Task.yield()
         #expect(messageAB0_inv.command == .inv)
 
         let inv = try #require(InventoryMessage(messageAB0_inv.payload))
@@ -279,14 +227,8 @@ struct NodeBootstrapTests {
         // … --(tx)->> Bob
         try await bob.processMessage(messageAB1_tx, from: peerA)
 
-        let bobTx = try #require(await bobTxs.next())
-
-        Task {
-            await bob.handleTx(bobTx)
-        }
         // Bob --(inv)->> …
         let messageBC0_inv = try #require(await bobToCarol.next())
-        await Task.yield()
         #expect(messageBC0_inv.command == .inv)
 
         let inv2 = try #require(InventoryMessage(messageBC0_inv.payload))
@@ -315,10 +257,7 @@ struct NodeBootstrapTests {
         // … --(tx)->> Carol
         try await carol.processMessage(messageBC1_tx, from: carolPeerB)
 
-        let carolTx = try #require(await carolTxs.next())
-
-        // No need to wrap this in a task since it will not produce the side effect of posting to the txs channel
-        await carol.handleTx(carolTx)
+        #expect(await carol.popMessage(carolPeerB) == .none)
 
         let bobsMempool = await bob.blockchain.mempool
         #expect(await alice.blockchain.mempool == bobsMempool)
@@ -329,20 +268,33 @@ struct NodeBootstrapTests {
 
     @Test("Compact block (high bandwidth mode)")
     func  compactBlockHighBandwidth() async throws {
-        // Setup blockchains
-        let aliceChain = BlockchainService(params: .swiftTesting)
-        let bobChain = BlockchainService(params: .swiftTesting)
-        let carolChain = BlockchainService(params: .swiftTesting)
+        // Alices's node
+        let peerB = PeerID()
+        let alice = NodeService(
+            blockchain: .init(params: .swiftTesting),
+            config: .init(keepAliveFrequency: .none),
+            state: NodeState(ibdComplete: true, peers: [peerB : makePeerState()])
+        )
 
-        await aliceChain.generateTo(pubkey)
-        let aliceTip  = await aliceChain.tip
+        // Bob's node
+        let peerA = PeerID()
+        let peerC = PeerID() // Carol on Bob's node
+        let bob = NodeService(blockchain: .init(params: .swiftTesting), config: .init(keepAliveFrequency: .none), state: NodeState(ibdComplete: true, peers: [peerA : makePeerState(true), peerC : makePeerState()]))
+
+        // Carol's node
+        let carolPeerB = PeerID() // Bob on Carol's node
+        let carol = NodeService(blockchain: .init(params: .swiftTesting), config: .init(keepAliveFrequency: .none), state: NodeState(ibdComplete: true, peers: [carolPeerB : makePeerState(true)]))
+
+        // Setup blockchains
+        await alice.blockchain.generateTo(pubkey)
+        let aliceTip  = await alice.blockchain.tip
         for i in 1 ..< aliceTip {
-            try await bobChain.processBlock(await aliceChain.blocks[i])
-            try await carolChain.processBlock(await aliceChain.blocks[i])
+            try await bob.blockchain.processBlock(await alice.blockchain.blocks[i])
+            try await carol.blockchain.processBlock(await alice.blockchain.blocks[i])
         }
 
         // Grab block 1's coinbase transaction and output.
-        let coinbaseTx = await aliceChain.getBlock(1).txs[0]
+        let coinbaseTx = await alice.blockchain.getBlock(1).txs[0]
 
         var tx = BitcoinTx(
             ins: [.init(outpoint: coinbaseTx.outpoint(0))],
@@ -354,62 +306,28 @@ struct NodeBootstrapTests {
         signer.sign(txIn: 0, with: secretKey)
         tx = signer.tx
 
-        try await aliceChain.addTx(tx)
-        try await bobChain.addTx(tx)
+        try await alice.blockchain.addTx(tx)
+        try await bob.blockchain.addTx(tx)
 
         // Carol will not have a copy of the transaction therefore will have to request it
-        // try await carolChain.addTx(tx)
-
-        // Alices's node
-        let peerB = UUID()
-        let alice = NodeService(
-            blockchain: aliceChain,
-            config: .init(keepAliveFrequency: .none),
-            state: NodeState(ibdComplete: true, peers: [peerB : makePeerState()])
-        )
-
-        // Bob's node
-        let peerA = UUID()
-        let peerC = UUID() // Carol on Bob's node
-        let bob = NodeService(blockchain: bobChain, config: .init(keepAliveFrequency: .none), state: NodeState(ibdComplete: true, peers: [peerA : makePeerState(true), peerC : makePeerState()]))
-
-        // Carol's node
-        let carolPeerB = UUID() // Bob on Carol's node
-        let carol = NodeService(blockchain: carolChain, config: .init(keepAliveFrequency: .none), state: NodeState(ibdComplete: true, peers: [carolPeerB : makePeerState(true)]))
+        // try await carol.blockchain.addTx(tx)
 
         // Start nodes
-        await alice.start()
-        await bob.start()
-        await carol.start()
+        Task { await alice.start() }
+        Task { await bob.start() }
+        Task { await carol.start() }
+        await Task.yield()
 
         // Peer channels
         var aliceToBob = await alice.getChannel(for: peerB).makeAsyncIterator()
-        // var bobToAlice = await bob.getChannel(for: peerA).makeAsyncIterator()
         var bobToCarol = await bob.getChannel(for: peerC).makeAsyncIterator()
-        // var carolToBob = await carol.getChannel(for: carolPeerB).makeAsyncIterator()
-
-        // Inventory channels
-        var aliceBlocks = try #require(await alice.blocks?.makeAsyncIterator())
-        var bobBlocks = try #require(await bob.blocks?.makeAsyncIterator())
-        var carolBlocks = try #require(await carol.blocks?.makeAsyncIterator())
 
         // Begin testing
-        Task {
-            await aliceChain.generateTo(pubkey)
-        }
-        let aliceBlock2 = try #require(await aliceBlocks.next())
-        await Task.yield()
-
-        let block2 = await aliceChain.blocks[2]
-        #expect(aliceBlock2 == block2)
-
-        Task {
-            await alice.handleBlock(aliceBlock2)
-        }
+        await alice.blockchain.generateTo(pubkey)
+        let block2 = await alice.blockchain.blocks[2]
 
         // Alice --(cmpctblock)->> …
         let messageAB0_cmpctblock = try #require(await aliceToBob.next())
-        await Task.yield()
         #expect(messageAB0_cmpctblock.command == .cmpctblock)
 
         let cmpctblock = try #require(CompactBlockMessage(messageAB0_cmpctblock.payload))
@@ -418,15 +336,8 @@ struct NodeBootstrapTests {
         // … --(cmpctblock)->> Bob
         try await bob.processMessage(messageAB0_cmpctblock, from: peerA)
 
-        let bobBlock1 = try #require(await bobBlocks.next())
-
-        Task {
-            await bob.handleBlock(bobBlock1)
-        }
-
         // Bob --(cmpctblock)->> …
         let messageBC0_cmpctblock = try #require(await bobToCarol.next())
-        await Task.yield()
         #expect(messageBC0_cmpctblock.command == .cmpctblock)
 
         let cmpctblock2 = try #require(CompactBlockMessage(messageBC0_cmpctblock.payload))
@@ -456,10 +367,7 @@ struct NodeBootstrapTests {
         // … --(blocktxn)->> Carol
         try await carol.processMessage(messageBC1_blocktxn, from: carolPeerB)
 
-        let carolBlock2 = try #require(await carolBlocks.next())
-
-        // No need to wrap this in a task since it will not produce the side effect of posting to the blocks channel
-        await carol.handleBlock(carolBlock2)
+        #expect(await carol.popMessage(carolPeerB) == .none)
 
         let bobsBlocks = await bob.blockchain.blocks
         #expect(await alice.blockchain.blocks == bobsBlocks)
@@ -470,21 +378,34 @@ struct NodeBootstrapTests {
 
     @Test("Compact block (low bandwidth mode)")
     func  compactBlockLowBandwidth() async throws {
-        // Setup blockchains
-        let aliceChain = BlockchainService(params: .swiftTesting)
-        let bobChain = BlockchainService(params: .swiftTesting)
-        let carolChain = BlockchainService(params: .swiftTesting)
+        // Alices's node
+        let peerB = PeerID()
+        let alice = NodeService(
+            blockchain: .init(params: .swiftTesting),
+            config: .init(keepAliveFrequency: .none),
+            state: NodeState(ibdComplete: true, peers: [peerB : makePeerState(highBandwidth: false)])
+        )
 
-        await aliceChain.generateTo(pubkey)
-        let aliceTip  = await aliceChain.tip
+        // Bob's node
+        let peerA = PeerID()
+        let peerC = PeerID() // Carol on Bob's node
+        let bob = NodeService(blockchain: .init(params: .swiftTesting), config: .init(keepAliveFrequency: .none), state: NodeState(ibdComplete: true, peers: [peerA : makePeerState(true), peerC : makePeerState(highBandwidth: false)]))
+
+        // Carol's node
+        let carolPeerB = PeerID() // Bob on Carol's node
+        let carol = NodeService(blockchain: .init(params: .swiftTesting), config: .init(keepAliveFrequency: .none), state: NodeState(ibdComplete: true, peers: [carolPeerB : makePeerState(true)]))
+
+        // Setup blockchains
+        await alice.blockchain.generateTo(pubkey)
+        let aliceTip  = await alice.blockchain.tip
 
         for i in 1 ..< aliceTip {
-            try await bobChain.processBlock(await aliceChain.blocks[i])
-            try await carolChain.processBlock(await aliceChain.blocks[i])
+            try await bob.blockchain.processBlock(await alice.blockchain.blocks[i])
+            try await carol.blockchain.processBlock(await alice.blockchain.blocks[i])
         }
 
         // Grab block 1's coinbase transaction and output.
-        let coinbaseTx = await aliceChain.getBlock(1).txs[0]
+        let coinbaseTx = await alice.blockchain.getBlock(1).txs[0]
 
         var tx = BitcoinTx(
             ins: [.init(outpoint: coinbaseTx.outpoint(0))],
@@ -496,62 +417,29 @@ struct NodeBootstrapTests {
         signer.sign(txIn: 0, with: secretKey)
         tx = signer.tx
 
-        try await aliceChain.addTx(tx)
-        try await bobChain.addTx(tx)
+        try await alice.blockchain.addTx(tx)
+        try await bob.blockchain.addTx(tx)
 
         // Carol will not have a copy of the transaction therefore will have to request it
-        // try await carolChain.addTx(tx)
-
-        // Alices's node
-        let peerB = UUID()
-        let alice = NodeService(
-            blockchain: aliceChain,
-            config: .init(keepAliveFrequency: .none),
-            state: NodeState(ibdComplete: true, peers: [peerB : makePeerState(highBandwidth: false)])
-        )
-
-        // Bob's node
-        let peerA = UUID()
-        let peerC = UUID() // Carol on Bob's node
-        let bob = NodeService(blockchain: bobChain, config: .init(keepAliveFrequency: .none), state: NodeState(ibdComplete: true, peers: [peerA : makePeerState(true), peerC : makePeerState(highBandwidth: false)]))
-
-        // Carol's node
-        let carolPeerB = UUID() // Bob on Carol's node
-        let carol = NodeService(blockchain: carolChain, config: .init(keepAliveFrequency: .none), state: NodeState(ibdComplete: true, peers: [carolPeerB : makePeerState(true)]))
+        // try await carol.blockchain.addTx(tx)
 
         // Start nodes
-        await alice.start()
-        await bob.start()
-        await carol.start()
+        Task { await alice.start() }
+        Task { await bob.start() }
+        Task { await carol.start() }
+        await Task.yield()
 
         // Peer channels
         var aliceToBob = await alice.getChannel(for: peerB).makeAsyncIterator()
-        // var bobToAlice = await bob.getChannel(for: peerA).makeAsyncIterator()
         var bobToCarol = await bob.getChannel(for: peerC).makeAsyncIterator()
-        // var carolToBob = await carol.getChannel(for: carolPeerB).makeAsyncIterator()
-
-        // Inventory channels
-        var aliceBlocks = try #require(await alice.blocks?.makeAsyncIterator())
-        var bobBlocks = try #require(await bob.blocks?.makeAsyncIterator())
-        var carolBlocks = try #require(await carol.blocks?.makeAsyncIterator())
 
         // Begin testing
-        Task {
-            await aliceChain.generateTo(pubkey)
-        }
-        let aliceBlock2 = try #require(await aliceBlocks.next())
-        await Task.yield()
+        await alice.blockchain.generateTo(pubkey)
 
-        let block2 = await aliceChain.blocks[2]
-        #expect(aliceBlock2 == block2)
-
-        Task {
-            await alice.handleBlock(aliceBlock2)
-        }
+        let block2 = await alice.blockchain.blocks[2]
 
         // Alice --(headers)->> …
         let messageAB0_headers = try #require(await aliceToBob.next())
-        await Task.yield()
         #expect(messageAB0_headers.command == .headers)
 
         let headers = try #require(HeadersMessage(messageAB0_headers.payload))
@@ -579,17 +467,10 @@ struct NodeBootstrapTests {
 
         // … --(cmpctblock)->> Bob
         try await bob.processMessage(messageAB1_cmpctblock, from: peerA)
-        #expect(await bobChain.tip == 3)
-
-        let bobBlock2 = try #require(await bobBlocks.next())
-
-        Task {
-            await bob.handleBlock(bobBlock2)
-        }
+        #expect(await bob.blockchain.tip == 3)
 
         // Bob --(headers)->> …
         let messageBC0_headers = try #require(await bobToCarol.next())
-        await Task.yield()
         #expect(messageBC0_headers.command == .headers)
 
         let headers2 = try #require(HeadersMessage(messageBC0_headers.payload))
@@ -610,7 +491,6 @@ struct NodeBootstrapTests {
 
         // Bob --(cmpctblock)->> …
         let messageBC0_cmpctblock = try #require(await bob.popMessage(peerC))
-        await Task.yield()
         #expect(messageBC0_cmpctblock.command == .cmpctblock)
 
         let cmpctblock2 = try #require(CompactBlockMessage(messageBC0_cmpctblock.payload))
@@ -640,10 +520,7 @@ struct NodeBootstrapTests {
         // … --(blocktxn)->> Carol
         try await carol.processMessage(messageBC1_blocktxn, from: carolPeerB)
 
-        let carolBlock2 = try #require(await carolBlocks.next())
-
-        // No need to wrap this in a task since it will not produce the side effect of posting to the blocks channel
-        await carol.handleBlock(carolBlock2)
+        #expect(await carol.popMessage(carolPeerB) == .none)
 
         let bobsBlocks = await bob.blockchain.blocks
         #expect(await alice.blockchain.blocks == bobsBlocks)
