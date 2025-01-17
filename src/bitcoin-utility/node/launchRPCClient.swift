@@ -30,7 +30,7 @@ public func launchRPCClient(host: String, port: Int, method: String, params: JSO
     }
 
     try await clientChannel.executeThenClose {
-        let request = JSONRequest(id: NSUUID().uuidString, method: method,
+        let request = JSONRequest(id: PeerID().uuidString, method: method,
             params: params)
         try await $1.write(request)
         try await handleRPC($0, $1)
