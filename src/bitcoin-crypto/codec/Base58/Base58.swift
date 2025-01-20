@@ -4,7 +4,6 @@ import Foundation
 private let checksumLength = 4
 
 private let alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz".data(using: .ascii)!
-private let radix = BigUInt(alphabet.count)
 
 /// Produces checksumed Base58 strings used for legacy Bitcoin addresses.
 public struct Base58Encoder {
@@ -16,12 +15,7 @@ public struct Base58Encoder {
     public let withChecksum: Bool
 
     public func encode(_ data: Data) -> String {
-        let data = if withChecksum {
-            data + calculateChecksum(data)
-        } else {
-            data
-        }
-        return base58Encode(data)
+        return base58Encode(withChecksum ? data + calculateChecksum(data) : data)
     }
 }
 
@@ -51,38 +45,59 @@ public struct Base58Decoder {
     }
 }
 
-
 private func base58Encode(_ bytes: Data) -> String {
-    var answer: [UInt8] = []
-    var integerBytes = BigUInt(Data(bytes))
+    var b58 = Data(count: bytes.count * 138 / 100 + 1)
+    var length = 0
 
-    while integerBytes > 0 {
-        let (quotient, remainder) = integerBytes.quotientAndRemainder(dividingBy: radix)
-        answer.insert(alphabet[Int(remainder)], at: 0)
-        integerBytes = quotient
+    for byte in bytes {
+        var i = 0
+        var carry = UInt(byte)
+        while i < b58.count && (carry != 0 || i < length) {
+            let idx = b58.count - 1 - i
+            carry += 256 * UInt(b58[idx])
+            b58[idx] = UInt8(carry % 58)
+            carry /= 58
+            i += 1
+        }
+
+        assert(carry == 0)
+        length = i
     }
 
-    let prefix = Array(bytes.prefix { $0 == 0 }).map { _ in alphabet[0] }
-    answer.insert(contentsOf: prefix, at: 0)
+    let data = Data(count: bytes.prefix { $0 == 0 }.count) + b58.suffix(length)
 
     // Force unwrap as the given alphabet will always decode to UTF8.
-    return String(bytes: answer, encoding: .utf8)!
+    return String(bytes: data.map { alphabet[Int($0)] }, encoding: .utf8)!
 }
 
 private func base58Decode(_ string: String) -> Data? {
-    var answer = BigUInt(0)
-    var i = BigUInt(1)
-    let byteString = string.data(using: .ascii)!
+    var b256 = Data(count: string.count * 733 / 1000 + 1)
+    var length = 0
 
-    for char in byteString.reversed() {
+    guard let byteString = string.data(using: .ascii) else {
+        return nil
+    }
+
+    for char in byteString {
         guard let alphabetIndex = alphabet.firstIndex(of: char) else {
             return .none
         }
-        answer += (i * BigUInt(alphabetIndex))
-        i *= radix
+
+        var i = 0
+        var carry = UInt(alphabetIndex)
+        while i < b256.count && (carry != 0 || i < length) {
+            let idx = b256.count - 1 - i
+            carry += 58 * UInt(b256[idx])
+            b256[idx] = UInt8(carry % 256)
+            carry /= 256
+            i += 1
+        }
+
+        assert(carry == 0)
+        length = i
     }
 
-    let bytes = answer.data
+    let bytes = b256.suffix(length)
     return .init(count: byteString.prefix { $0 == alphabet[0] }.count) + bytes
 }
 
