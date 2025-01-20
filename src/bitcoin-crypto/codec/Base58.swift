@@ -4,6 +4,24 @@ import Foundation
 private let checksumLength = 4
 
 private let alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz".data(using: .ascii)!
+private let lookup: [Int8] = [
+    -1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1,
+    -1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1,
+    -1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1,
+    -1, 0, 1, 2, 3, 4, 5, 6,  7, 8,-1,-1,-1,-1,-1,-1,
+    -1, 9,10,11,12,13,14,15, 16,-1,17,18,19,20,21,-1,
+    22,23,24,25,26,27,28,29, 30,31,32,-1,-1,-1,-1,-1,
+    -1,33,34,35,36,37,38,39, 40,41,42,43,-1,44,45,46,
+    47,48,49,50,51,52,53,54, 55,56,57,-1,-1,-1,-1,-1,
+    -1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1,
+    -1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1,
+    -1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1,
+    -1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1,
+    -1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1,
+    -1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1,
+    -1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1,
+    -1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1,
+]
 
 /// Produces checksumed Base58 strings used for legacy Bitcoin addresses.
 public struct Base58Encoder {
@@ -79,8 +97,9 @@ private func base58Decode(_ string: String) -> Data? {
     }
 
     for char in byteString {
-        guard let alphabetIndex = alphabet.firstIndex(of: char) else {
-            return .none
+        let alphabetIndex = lookup[Int(char)]
+        guard alphabetIndex != -1 else {
+            return nil
         }
 
         var i = 0
