@@ -1,4 +1,5 @@
 import Foundation
+import BitcoinCrypto
 
 /// The output of a ``BitcoinTx``. While unspent also referred to as a _coin_.
 public struct TxOut: Equatable, Sendable {
@@ -20,7 +21,21 @@ public struct TxOut: Equatable, Sendable {
 }
 
 /// Data extensions.
-extension TxOut {
+extension TxOut: BinaryCodable {
+    public init(from decoder: inout BinaryDecoder) throws(BinaryDecodingError) {
+        value = try decoder.decode()
+        script = try BitcoinScript(prefixedFrom: &decoder)
+    }
+
+    public func encode(to encoder: inout BinaryEncoder) {
+        encoder.encode(value)
+        script.encodePrefixed(to: &encoder)
+    }
+    
+    public func encodingSize(_ counter: inout BinaryEncodingSizeCounter) {
+        counter.count(value)
+        script.encodingSizePrefixed(&counter)
+    }
 
     package init?(_ data: Data) {
         guard data.count > MemoryLayout<SatoshiAmount>.size else {
@@ -29,28 +44,21 @@ extension TxOut {
         var data = data
         let value = data.withUnsafeBytes { $0.loadUnaligned(as: SatoshiAmount.self) }
         data = data.dropFirst(MemoryLayout.size(ofValue: value))
-        guard let script = BitcoinScript(prefixedData: data) else {
+        guard let script = try? BitcoinScript(prefixedData: data) else {
             return nil
         }
         self.init(value: value, script: script)
     }
 
     var valueData: Data {
-        Data(value: value)
+        var encoder = BinaryEncoder(size: valueSize)
+        encoder.encode(value)
+        return encoder.data
     }
 
-    package var data: Data {
-        var ret = Data(count: size)
-        let offset = ret.addData(valueData)
-        ret.addData(script.prefixedData, at: offset)
-        return ret
-    }
-
-    var size: Int {
-        Self.valueSize + script.prefixedSize
-    }
-
-    static var valueSize: Int {
-        MemoryLayout<SatoshiAmount>.size
+    var valueSize: Int {
+        var counter = BinaryEncodingSizeCounter()
+        counter.count(value)
+        return counter.size
     }
 }

@@ -37,7 +37,7 @@ public struct BitcoinScript: Equatable, Sendable {
 
     // BIP16
     public var isPayToScriptHash: Bool {
-        if size == RIPEMD160.Digest.byteCount + 3,
+        if binarySize == RIPEMD160.Digest.byteCount + 3,
            ops.count == 3,
            ops[0] == .hash160,
            case .pushBytes(_) = ops[1],
@@ -46,7 +46,7 @@ public struct BitcoinScript: Equatable, Sendable {
 
     /// BIP141
     var isSegwit: Bool {
-        if size >= 3 && size <= 41,
+        if binarySize >= 3 && binarySize <= 41,
            ops.count == 2,
            case .pushBytes(_) = ops[1]
         {
@@ -89,7 +89,7 @@ public struct BitcoinScript: Equatable, Sendable {
 
     // MARK: - Type Properties
 
-    public static let empty = Self([])
+    public static let empty: Self = []
 
     /// Maximum number of public keys per multisig.
     static let maxMultiSigPubkeys = 20
@@ -141,7 +141,7 @@ public struct BitcoinScript: Equatable, Sendable {
     }
 
     public static func payToScriptHash(_ redeem: BitcoinScript) -> Self {
-        payToScriptHash(Data(Hash160.hash(data: redeem.data)))
+        payToScriptHash(Data(Hash160.hash(data: redeem.binaryData)))
     }
 
     package static func payToScriptHash(_ hash: Data) -> Self {
@@ -157,7 +157,7 @@ public struct BitcoinScript: Equatable, Sendable {
     }
 
     public static func payToWitnessScriptHash(_ witness: BitcoinScript) -> Self {
-        let hash = Data(SHA256.hash(data: witness.data))
+        let hash = Data(SHA256.hash(data: witness.binaryData))
         return payToWitnessScriptHash(hash)
     }
 
@@ -187,54 +187,73 @@ public struct BitcoinScript: Equatable, Sendable {
 
 extension BitcoinScript: ExpressibleByArrayLiteral {
 
+    public init<D: DataProtocol>(_ data: D) {
+        // TODO: Can script decoding really never fail? Even with unparsable data being taken into consideration…
+        try! self.init(binaryData: data)
+    }
+
     public init(arrayLiteral ops: ScriptOp...) {
         self.init(ops)
     }
 }
 
 /// Data extensions.
-extension BitcoinScript {
+extension BitcoinScript: BinaryCodable {
 
-    /// Creates a script from raw data.
-    ///
-    /// The script will be fully parsed – if possible. Any unparsable data will be stored separately.
-    public init(_ data: Data) {
-        var data = data
+    public init(from decoder: inout BinaryDecoder) throws(BinaryDecodingError) {
         var ops = [ScriptOp]()
-        while data.count > 0 {
-            guard let op = ScriptOp(data) else {
-                break
-            }
+        while let op: ScriptOp = try? decoder.decode() {
             ops.append(op)
-            data = data.dropFirst(op.size)
         }
         self.ops = ops
-        self.unparsable = data
+        unparsable = try decoder.decode()
     }
 
-    init?(prefixedData: Data) {
-        guard let data = Data(varLenData: prefixedData) else {
-            return nil
+    public init(prefixedFrom decoder: inout BinaryDecoder) throws(BinaryDecodingError) {
+        let size: VarInt = try decoder.decode()
+        decoder.setLimit(size.value)
+        try self.init(from: &decoder)
+        decoder.resetLimit()
+    }
+
+    init(prefixedData: Data) throws(BinaryDecodingError) {
+        var decoder = BinaryDecoder(prefixedData)
+        try self.init(prefixedFrom: &decoder)
+    }
+
+    public func encode(to encoder: inout BinaryEncoder) {
+        for op in ops {
+            encoder.encode(op)
         }
-        self.init(data)
+        encoder.encode(unparsable)
     }
 
-    // MARK: - Computed Properties
-
-    /// Serialization of the script's operations into raw data. May include unparsable data.
-    public var data: Data {
-        ops.reduce(Data()) { $0 + $1.data } + unparsable
+    public func encodePrefixed(to encoder: inout BinaryEncoder) {
+        encoder.encode(VarInt(binarySize))
+        encode(to: &encoder)
+    }
+    
+    public func encodingSize(_ counter: inout BinaryEncodingSizeCounter) {
+        for op in ops {
+            counter.count(op)
+        }
+        counter.countSize(unparsable.count)
     }
 
-    public var size: Int {
-        ops.reduce(0) { $0 + $1.size } + unparsable.count
+    public func encodingSizePrefixed(_ counter: inout BinaryEncodingSizeCounter) {
+        counter.count(VarInt(binarySize))
+        encodingSize(&counter)
     }
 
-    var prefixedData: Data {
-        data.varLenData
+    public var dataPrefixed: Data {
+        var encoder = BinaryEncoder(size: sizePrefixed)
+        encodePrefixed(to: &encoder)
+        return encoder.data
     }
 
-    var prefixedSize: Int {
-        UInt64(size).varIntSize + size
+    public var sizePrefixed: Int {
+        var counter = BinaryEncodingSizeCounter()
+        self.encodingSizePrefixed(&counter)
+        return counter.size
     }
 }

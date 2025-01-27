@@ -1,4 +1,5 @@
 import Foundation
+import BitcoinCrypto
 
 /// Witness data associated with a particular ``TxIn``.
 ///
@@ -23,36 +24,35 @@ public struct TxWitness: Equatable, Sendable {
     }
 }
 
-/// Data extensions.
-extension TxWitness {
+extension TxWitness: ExpressibleByArrayLiteral {
+    public init(arrayLiteral elements: Data...) {
+        self.init(elements)
+    }
+}
 
-    init?(_ data: Data) {
-        var data = data
-        guard let elementsCount = data.varInt else {
-            return nil
-        }
-        data = data.dropFirst(elementsCount.varIntSize)
+/// Binary data extensions.
+extension TxWitness: BinaryCodable {
+
+    public init(from decoder: inout BinaryDecoder) throws(BinaryDecodingError) {
+        let count = (try decoder.decode() as VarInt).value
         var elements = [Data]()
-        for _ in 0 ..< elementsCount {
-            guard let element = Data(varLenData: data) else {
-                return nil
-            }
-            elements.append(element)
-            data = data.dropFirst(element.varLenSize)
+        for _ in 0 ..< count {
+            elements.append(try decoder.decode(variable: true))
         }
         self.elements = elements
     }
 
-    /// Used by ``BitcoinTx/data`` to support the serialization format specified in BIP144.
-    var data: Data {
-        var ret = Data(count: size)
-        let offset = ret.addData(Data(varInt: UInt64(elements.count)))
-        ret.addData(elements.reduce(Data()) { $0 + $1.varLenData }, at: offset)
-        return ret
+    public func encode(to encoder: inout BinaryEncoder) {
+        encoder.encode(VarInt(elements.count))
+        for e in elements {
+            encoder.encode(e, variable: true)
+        }
     }
 
-    var size: Int {
-        UInt64(elements.count).varIntSize + elements.varLenSize
+    public func encodingSize(_ counter: inout BinaryEncodingSizeCounter) {
+        counter.count(VarInt(elements.count))
+        for e in elements {
+            counter.count(e, variable: true)
+        }
     }
 }
-

@@ -52,9 +52,9 @@ public struct GetTransactionCommand: Sendable {
         }
         let outs = tx.outs.map {
             Output.Output(
-                raw: $0.data.hex,
+                raw: $0.binaryData.hex,
                 amount: $0.value,
-                script: $0.script.data.hex
+                script: $0.script.binaryData.hex
             )
         }
         let result = Output(

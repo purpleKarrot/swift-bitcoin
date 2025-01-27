@@ -126,7 +126,7 @@ extension BitcoinTx {
     private func verifyWitness(_ context: inout ScriptContext, witnessVersion: Int, witnessProgram: Data) throws {
         let txIn = context.txIn
 
-        guard var stack = ins[txIn].witness?.elements else { preconditionFailure() }
+        var stack = ins[txIn].witness.elements
 
         if witnessProgram.count == Hash160.Digest.byteCount /* 20 */ {
             // If the version byte is 0, and the witness program is 20 bytes: It is interpreted as a pay-to-witness-public-key-hash (P2WPKH) program.
@@ -182,7 +182,7 @@ extension BitcoinTx {
         let prevouts = context.prevouts
         let config = context.config
 
-        guard let witness = ins[txIn].witness else { preconditionFailure() }
+        let witness = ins[txIn].witness
         guard config.contains(.taproot) else { return }
 
         var stack = witness.elements
@@ -233,7 +233,7 @@ extension BitcoinTx {
         let leafVersion = control[0] & 0xfe
 
         // Let k0 = hashTapLeaf(v || compact_size(size of s) || s); also call it the tapleaf hash.
-        let tapLeafHash = Data(SHA256.hash(data: [leafVersion] + tapscriptData.varLenData, tag: "TapLeaf"))
+        let tapLeafHash = Data(SHA256.hash(data: [leafVersion] + VarInt(tapscriptData.count).binaryData + tapscriptData, tag: "TapLeaf"))
 
         // Compute the Merkle root from the leaf and the provided path.
         let merkleRoot = computeMerkleRoot(controlBlock: control, tapLeafHash: tapLeafHash)
